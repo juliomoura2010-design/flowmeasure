@@ -8,73 +8,84 @@ import { trpc } from "@/lib/trpc";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-type Medicao = {
-  id: number;
-  numero: string;
-  pedidoId: number;
-  mes: string;
-  valor: string;
-  dataEmissao: Date | null;
-  dataPagamento: Date | null;
-  status: "pendente" | "paga" | "cancelada";
-  numeroPagamento: string | null;
-  observacoes: string | null;
-};
-
-type Pedido = { id: number; numero: string; fornecedorId: number };
-
 type Props = {
   open: boolean;
   onClose: () => void;
-  medicao: Medicao | null;
-  pedidos: Pedido[];
-  defaultMes: string;
-  onSuccess: () => void;
+  editingId?: number | null;
+  defaultMes?: string;
 };
 
-function toDateInput(d: Date | null | undefined) {
+function toDateInput(d: Date | string | null | undefined) {
   if (!d) return "";
   return new Date(d).toISOString().split("T")[0];
 }
 
-export default function MedicaoModal({ open, onClose, medicao, pedidos, defaultMes, onSuccess }: Props) {
-  const [form, setForm] = useState({
-    numero: "",
-    pedidoId: "",
-    mes: defaultMes,
-    valor: "",
-    dataEmissao: "",
-    dataPagamento: "",
-    status: "pendente",
-    numeroPagamento: "",
-    observacoes: "",
-  });
+function getCurrentMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+const defaultForm = {
+  numero: "",
+  pedidoId: "",
+  mes: getCurrentMonth(),
+  valor: "",
+  dataEmissao: "",
+  dataVencimento: "",
+  dataPagamento: "",
+  status: "pendente",
+  numeroPagamento: "",
+  observacoes: "",
+};
+
+export default function MedicaoModal({ open, onClose, editingId, defaultMes }: Props) {
+  const [form, setForm] = useState({ ...defaultForm, mes: defaultMes || getCurrentMonth() });
+
+  const utils = trpc.useUtils();
+  const { data: pedidos = [] } = trpc.pedidos.list.useQuery();
+  const { data: medicaoData } = trpc.medicoes.getById.useQuery(
+    { id: editingId! },
+    { enabled: !!editingId }
+  );
 
   useEffect(() => {
-    if (medicao) {
+    if (editingId && medicaoData) {
       setForm({
-        numero: medicao.numero,
-        pedidoId: String(medicao.pedidoId),
-        mes: medicao.mes,
-        valor: medicao.valor,
-        dataEmissao: toDateInput(medicao.dataEmissao),
-        dataPagamento: toDateInput(medicao.dataPagamento),
-        status: medicao.status,
-        numeroPagamento: medicao.numeroPagamento ?? "",
-        observacoes: medicao.observacoes ?? "",
+        numero: medicaoData.numero,
+        pedidoId: String(medicaoData.pedidoId),
+        mes: medicaoData.mes,
+        valor: medicaoData.valor,
+        dataEmissao: toDateInput(medicaoData.dataEmissao),
+        dataVencimento: toDateInput((medicaoData as any).dataVencimento),
+        dataPagamento: toDateInput(medicaoData.dataPagamento),
+        status: medicaoData.status,
+        numeroPagamento: medicaoData.numeroPagamento ?? "",
+        observacoes: medicaoData.observacoes ?? "",
       });
-    } else {
-      setForm({ numero: "", pedidoId: "", mes: defaultMes, valor: "", dataEmissao: "", dataPagamento: "", status: "pendente", numeroPagamento: "", observacoes: "" });
+    } else if (!editingId) {
+      setForm({ ...defaultForm, mes: defaultMes || getCurrentMonth() });
     }
-  }, [medicao, open, defaultMes]);
+  }, [editingId, medicaoData, open, defaultMes]);
 
   const createMutation = trpc.medicoes.create.useMutation({
-    onSuccess: () => { toast.success("Medição criada com sucesso"); onSuccess(); },
+    onSuccess: () => {
+      toast.success("Medição criada com sucesso");
+      utils.medicoes.listComDados.invalidate();
+      utils.medicoes.controleMes.invalidate();
+      utils.dashboard.getData.invalidate();
+      onClose();
+    },
     onError: (e) => toast.error("Erro ao criar medição: " + e.message),
   });
 
   const updateMutation = trpc.medicoes.update.useMutation({
-    onSuccess: () => { toast.success("Medição atualizada com sucesso"); onSuccess(); },
+    onSuccess: () => {
+      toast.success("Medição atualizada com sucesso");
+      utils.medicoes.listComDados.invalidate();
+      utils.medicoes.controleMes.invalidate();
+      utils.dashboard.getData.invalidate();
+      onClose();
+    },
     onError: (e) => toast.error("Erro ao atualizar medição: " + e.message),
   });
 
@@ -91,14 +102,15 @@ export default function MedicaoModal({ open, onClose, medicao, pedidos, defaultM
       mes: form.mes,
       valor: form.valor,
       dataEmissao: form.dataEmissao || null,
+      dataVencimento: form.dataVencimento || null,
       dataPagamento: form.dataPagamento || null,
       status: form.status as "pendente" | "paga" | "cancelada",
       numeroPagamento: form.numeroPagamento || null,
       observacoes: form.observacoes || null,
     };
 
-    if (medicao) {
-      updateMutation.mutate({ id: medicao.id, data });
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data });
     } else {
       createMutation.mutate(data);
     }
@@ -108,14 +120,14 @@ export default function MedicaoModal({ open, onClose, medicao, pedidos, defaultM
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading">{medicao ? "Editar Medição" : "Nova Medição"}</DialogTitle>
+          <DialogTitle className="font-heading">{editingId ? "Editar Medição" : "Nova Medição"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Nº da Medição <span className="text-destructive">*</span></Label>
+              <Label>Nº Documento <span className="text-destructive">*</span></Label>
               <Input value={form.numero} onChange={e => setForm(p => ({ ...p, numero: e.target.value }))} placeholder="Ex: MED-2025-001" required />
             </div>
             <div className="space-y-1.5">
@@ -125,7 +137,7 @@ export default function MedicaoModal({ open, onClose, medicao, pedidos, defaultM
                   <SelectValue placeholder="Selecione o pedido" />
                 </SelectTrigger>
                 <SelectContent>
-                  {pedidos.map(p => (
+                  {(pedidos as any[]).map(p => (
                     <SelectItem key={p.id} value={String(p.id)}>{p.numero}</SelectItem>
                   ))}
                 </SelectContent>
@@ -144,8 +156,8 @@ export default function MedicaoModal({ open, onClose, medicao, pedidos, defaultM
               <Input type="date" value={form.dataEmissao} onChange={e => setForm(p => ({ ...p, dataEmissao: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Data de Pagamento</Label>
-              <Input type="date" value={form.dataPagamento} onChange={e => setForm(p => ({ ...p, dataPagamento: e.target.value }))} />
+              <Label>Data de Vencimento</Label>
+              <Input type="date" value={form.dataVencimento} onChange={e => setForm(p => ({ ...p, dataVencimento: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
@@ -159,9 +171,15 @@ export default function MedicaoModal({ open, onClose, medicao, pedidos, defaultM
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Nº do Pagamento</Label>
-              <Input value={form.numeroPagamento} onChange={e => setForm(p => ({ ...p, numeroPagamento: e.target.value }))} placeholder="Número do documento" />
+              <Label>Nº Pagamento</Label>
+              <Input value={form.numeroPagamento} onChange={e => setForm(p => ({ ...p, numeroPagamento: e.target.value }))} placeholder="Número do documento de pagamento" />
             </div>
+            {form.status === "paga" && (
+              <div className="space-y-1.5">
+                <Label>Data de Pagamento</Label>
+                <Input type="date" value={form.dataPagamento} onChange={e => setForm(p => ({ ...p, dataPagamento: e.target.value }))} />
+              </div>
+            )}
             <div className="sm:col-span-2 space-y-1.5">
               <Label>Observações</Label>
               <Textarea value={form.observacoes} onChange={e => setForm(p => ({ ...p, observacoes: e.target.value }))} placeholder="Observações adicionais" rows={3} />
@@ -170,7 +188,7 @@ export default function MedicaoModal({ open, onClose, medicao, pedidos, defaultM
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={isLoading} className="bg-primary text-primary-foreground">
-              {isLoading ? "Salvando..." : medicao ? "Salvar Alterações" : "Criar Medição"}
+              {isLoading ? "Salvando..." : editingId ? "Salvar Alterações" : "Criar Medição"}
             </Button>
           </div>
         </form>

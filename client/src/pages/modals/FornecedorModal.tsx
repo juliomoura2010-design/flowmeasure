@@ -7,25 +7,10 @@ import { trpc } from "@/lib/trpc";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-type Fornecedor = {
-  id: number;
-  nome: string;
-  cnpj: string | null;
-  email: string | null;
-  telefone: string | null;
-  endereco: string | null;
-  cidade: string | null;
-  estado: string | null;
-  cep: string | null;
-  contato: string | null;
-  status: "ativo" | "inativo" | "suspenso";
-};
-
 type Props = {
   open: boolean;
   onClose: () => void;
-  fornecedor: Fornecedor | null;
-  onSuccess: () => void;
+  editingId?: number | null;
 };
 
 type StatusType = "ativo" | "inativo" | "suspenso";
@@ -40,38 +25,56 @@ const emptyForm = {
   estado: "",
   cep: "",
   contato: "",
+  categoria: "",
   status: "ativo" as StatusType,
 };
 
-export default function FornecedorModal({ open, onClose, fornecedor, onSuccess }: Props) {
+export default function FornecedorModal({ open, onClose, editingId }: Props) {
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
 
+  const utils = trpc.useUtils();
+  const { data: fornecedorData } = trpc.fornecedores.getById.useQuery(
+    { id: editingId! },
+    { enabled: !!editingId }
+  );
+
   useEffect(() => {
-    if (fornecedor) {
+    if (editingId && fornecedorData) {
       setForm({
-        nome: fornecedor.nome,
-        cnpj: fornecedor.cnpj ?? "",
-        email: fornecedor.email ?? "",
-        telefone: fornecedor.telefone ?? "",
-        endereco: fornecedor.endereco ?? "",
-        cidade: fornecedor.cidade ?? "",
-        estado: fornecedor.estado ?? "",
-        cep: fornecedor.cep ?? "",
-        contato: fornecedor.contato ?? "",
-        status: fornecedor.status as StatusType,
+        nome: fornecedorData.nome,
+        cnpj: fornecedorData.cnpj ?? "",
+        email: fornecedorData.email ?? "",
+        telefone: fornecedorData.telefone ?? "",
+        endereco: fornecedorData.endereco ?? "",
+        cidade: fornecedorData.cidade ?? "",
+        estado: fornecedorData.estado ?? "",
+        cep: fornecedorData.cep ?? "",
+        contato: fornecedorData.contato ?? "",
+        categoria: (fornecedorData as any).categoria ?? "",
+        status: fornecedorData.status as StatusType,
       });
-    } else {
+    } else if (!editingId) {
       setForm(emptyForm);
     }
-  }, [fornecedor, open]);
+  }, [editingId, fornecedorData, open]);
 
   const createMutation = trpc.fornecedores.create.useMutation({
-    onSuccess: () => { toast.success("Fornecedor criado com sucesso"); onSuccess(); },
+    onSuccess: () => {
+      toast.success("Fornecedor criado com sucesso");
+      utils.fornecedores.listComStats.invalidate();
+      utils.fornecedores.list.invalidate();
+      onClose();
+    },
     onError: (e) => toast.error("Erro ao criar fornecedor: " + e.message),
   });
 
   const updateMutation = trpc.fornecedores.update.useMutation({
-    onSuccess: () => { toast.success("Fornecedor atualizado com sucesso"); onSuccess(); },
+    onSuccess: () => {
+      toast.success("Fornecedor atualizado com sucesso");
+      utils.fornecedores.listComStats.invalidate();
+      utils.fornecedores.list.invalidate();
+      onClose();
+    },
     onError: (e) => toast.error("Erro ao atualizar fornecedor: " + e.message),
   });
 
@@ -88,17 +91,17 @@ export default function FornecedorModal({ open, onClose, fornecedor, onSuccess }
       estado: form.estado || null,
       cep: form.cep || null,
       contato: form.contato || null,
+      categoria: form.categoria || null,
       status: form.status,
     };
-    if (fornecedor) {
-      updateMutation.mutate({ id: fornecedor.id, data });
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data });
     } else {
       createMutation.mutate(data);
     }
   };
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
-
   const set = (field: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }));
 
@@ -106,7 +109,7 @@ export default function FornecedorModal({ open, onClose, fornecedor, onSuccess }
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading">{fornecedor ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
+          <DialogTitle className="font-heading">{editingId ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -117,6 +120,10 @@ export default function FornecedorModal({ open, onClose, fornecedor, onSuccess }
             <div className="space-y-1.5">
               <Label htmlFor="cnpj">CNPJ</Label>
               <Input id="cnpj" value={form.cnpj} onChange={set("cnpj")} placeholder="00.000.000/0000-00" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="categoria">Categoria / Segmento</Label>
+              <Input id="categoria" value={form.categoria} onChange={set("categoria")} placeholder="Ex: Tecnologia, Logística, Construção" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">E-mail</Label>
@@ -150,10 +157,8 @@ export default function FornecedorModal({ open, onClose, fornecedor, onSuccess }
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select value={form.status} onValueChange={v => setForm(prev => ({ ...prev, status: v as any }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={form.status} onValueChange={v => setForm(prev => ({ ...prev, status: v as StatusType }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ativo">Ativo</SelectItem>
                   <SelectItem value="inativo">Inativo</SelectItem>
@@ -165,7 +170,7 @@ export default function FornecedorModal({ open, onClose, fornecedor, onSuccess }
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={isLoading} className="bg-primary text-primary-foreground">
-              {isLoading ? "Salvando..." : fornecedor ? "Salvar Alterações" : "Criar Fornecedor"}
+              {isLoading ? "Salvando..." : editingId ? "Salvar Alterações" : "Criar Fornecedor"}
             </Button>
           </div>
         </form>

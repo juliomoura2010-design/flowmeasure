@@ -27,6 +27,7 @@ export const fornecedores = mysqlTable("fornecedores", {
   estado: varchar("estado", { length: 2 }),
   cep: varchar("cep", { length: 10 }),
   contato: varchar("contato", { length: 255 }),
+  categoria: varchar("categoria", { length: 100 }), // ex: Tecnologia, Logística, Construção Civil
   status: mysqlEnum("status", ["ativo", "inativo", "suspenso"]).default("ativo").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -44,6 +45,9 @@ export const pedidos = mysqlTable("pedidos", {
   valor: decimal("valor", { precision: 15, scale: 2 }).notNull(),
   dataInicio: date("dataInicio"),
   dataFim: date("dataFim"),
+  // tipo: "fixo" = número fixo de medições (totalMedicoes), "mensal" = recorrente mensal
+  tipo: mysqlEnum("tipo", ["fixo", "mensal"]).default("mensal").notNull(),
+  totalMedicoes: int("totalMedicoes").default(12), // total de medições previstas
   tipoGasto: mysqlEnum("tipoGasto", ["capex", "opex"]).default("opex").notNull(),
   frequencia: mysqlEnum("frequencia", ["mensal", "trimestral", "semestral", "anual"]).default("mensal").notNull(),
   status: mysqlEnum("status", ["ativo", "concluido", "cancelado"]).default("ativo").notNull(),
@@ -63,6 +67,7 @@ export const medicoes = mysqlTable("medicoes", {
   mes: varchar("mes", { length: 7 }).notNull(), // formato: YYYY-MM
   valor: decimal("valor", { precision: 15, scale: 2 }).notNull(),
   dataEmissao: date("dataEmissao"),
+  dataVencimento: date("dataVencimento"), // data de vencimento para controle de atraso
   dataPagamento: date("dataPagamento"),
   status: mysqlEnum("status", ["pendente", "paga", "cancelada"]).default("pendente").notNull(),
   numeroPagamento: varchar("numeroPagamento", { length: 100 }),

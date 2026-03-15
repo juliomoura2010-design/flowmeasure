@@ -38,3 +38,19 @@
 - [x] Rotas configuradas no App.tsx
 - [x] Testes vitest para routers (13 testes passando)
 - [x] Checkpoint final
+
+## Revisão Completa - Replicar PayFlow Original
+- [x] Adicionar campo "categoria" em fornecedores
+- [x] Adicionar campo "totalMedicoes" (duração) em pedidos
+- [x] Adicionar campo "dataVencimento" em medições
+- [x] Atualizar queries do backend com KPIs corretos
+- [x] Reescrever Visão Geral: KPIs (Pedidos Ativos, Medições Pagas, Medições p/ Criar, Em Atraso)
+- [x] Visão Geral: tabela "Medições a Criar Este Mês"
+- [x] Visão Geral: tabela "Medições em Atraso"
+- [x] Visão Geral: tabela "Pedidos em Andamento" com Progresso e Próx. Medição
+- [x] Reescrever Pedidos: colunas Medições (X/Y), Pago, Próx. Medição + filtros por fornecedor e tipo
+- [x] Reescrever Medições: KPIs (Esperadas, Criadas, Faltam Criar), Controle por pedido com progresso
+- [x] Medições: tabela "Todas as Medições Registradas" com filtro por status
+- [x] Reescrever Fornecedores: campo categoria, contagem de pedidos, total acumulado
+- [x] Atualizar sidebar: seções PAINEL, FLUXO OPERACIONAL, GESTÃO
+- [x] Renomear sistema para PayFlow

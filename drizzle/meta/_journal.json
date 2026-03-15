@@ -15,6 +15,13 @@
       "when": 1773611630786,
       "tag": "0001_skinny_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1773613356820,
+      "tag": "0002_clean_war_machine",
+      "breakpoints": true
     }
   ]
 }

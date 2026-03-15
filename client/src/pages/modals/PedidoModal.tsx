@@ -8,75 +8,85 @@ import { trpc } from "@/lib/trpc";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-type Pedido = {
-  id: number;
-  numero: string;
-  fornecedorId: number;
-  descricao: string | null;
-  valor: string;
-  dataInicio: Date | null;
-  dataFim: Date | null;
-  tipoGasto: "capex" | "opex";
-  frequencia: "mensal" | "trimestral" | "semestral" | "anual";
-  status: "ativo" | "concluido" | "cancelado";
-  observacoes: string | null;
-};
-
 type Fornecedor = { id: number; nome: string };
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  pedido: Pedido | null;
-  fornecedores: Fornecedor[];
-  onSuccess: () => void;
+  editingId?: number | null;
+  fornecedores?: Fornecedor[];
 };
 
-function toDateInput(d: Date | null | undefined) {
+function toDateInput(d: Date | string | null | undefined) {
   if (!d) return "";
   return new Date(d).toISOString().split("T")[0];
 }
 
-export default function PedidoModal({ open, onClose, pedido, fornecedores, onSuccess }: Props) {
-  const [form, setForm] = useState({
-    numero: "",
-    fornecedorId: "",
-    descricao: "",
-    valor: "",
-    dataInicio: "",
-    dataFim: "",
-    tipoGasto: "opex",
-    frequencia: "mensal",
-    status: "ativo",
-    observacoes: "",
-  });
+const defaultForm = {
+  numero: "",
+  fornecedorId: "",
+  descricao: "",
+  valor: "",
+  dataInicio: "",
+  dataFim: "",
+  tipo: "mensal",
+  totalMedicoes: "12",
+  tipoGasto: "opex",
+  frequencia: "mensal",
+  status: "ativo",
+  observacoes: "",
+};
+
+export default function PedidoModal({ open, onClose, editingId, fornecedores: fornecedoresProp }: Props) {
+  const [form, setForm] = useState(defaultForm);
+
+  const utils = trpc.useUtils();
+  const { data: fornecedoresList = [] } = trpc.fornecedores.list.useQuery(undefined, { enabled: !fornecedoresProp });
+  const fornecedores = fornecedoresProp ?? (fornecedoresList as Fornecedor[]);
+
+  const { data: pedidoData } = trpc.pedidos.getById.useQuery(
+    { id: editingId! },
+    { enabled: !!editingId }
+  );
 
   useEffect(() => {
-    if (pedido) {
+    if (editingId && pedidoData) {
       setForm({
-        numero: pedido.numero,
-        fornecedorId: String(pedido.fornecedorId),
-        descricao: pedido.descricao ?? "",
-        valor: pedido.valor,
-        dataInicio: toDateInput(pedido.dataInicio),
-        dataFim: toDateInput(pedido.dataFim),
-        tipoGasto: pedido.tipoGasto,
-        frequencia: pedido.frequencia,
-        status: pedido.status,
-        observacoes: pedido.observacoes ?? "",
+        numero: pedidoData.numero,
+        fornecedorId: String(pedidoData.fornecedorId),
+        descricao: pedidoData.descricao ?? "",
+        valor: pedidoData.valor,
+        dataInicio: toDateInput(pedidoData.dataInicio),
+        dataFim: toDateInput(pedidoData.dataFim),
+        tipo: pedidoData.tipo ?? "mensal",
+        totalMedicoes: String(pedidoData.totalMedicoes ?? 12),
+        tipoGasto: pedidoData.tipoGasto,
+        frequencia: pedidoData.frequencia,
+        status: pedidoData.status,
+        observacoes: pedidoData.observacoes ?? "",
       });
-    } else {
-      setForm({ numero: "", fornecedorId: "", descricao: "", valor: "", dataInicio: "", dataFim: "", tipoGasto: "opex", frequencia: "mensal", status: "ativo", observacoes: "" });
+    } else if (!editingId) {
+      setForm(defaultForm);
     }
-  }, [pedido, open]);
+  }, [editingId, pedidoData, open]);
 
   const createMutation = trpc.pedidos.create.useMutation({
-    onSuccess: () => { toast.success("Pedido criado com sucesso"); onSuccess(); },
+    onSuccess: () => {
+      toast.success("Pedido criado com sucesso");
+      utils.pedidos.listComStats.invalidate();
+      utils.dashboard.getData.invalidate();
+      onClose();
+    },
     onError: (e) => toast.error("Erro ao criar pedido: " + e.message),
   });
 
   const updateMutation = trpc.pedidos.update.useMutation({
-    onSuccess: () => { toast.success("Pedido atualizado com sucesso"); onSuccess(); },
+    onSuccess: () => {
+      toast.success("Pedido atualizado com sucesso");
+      utils.pedidos.listComStats.invalidate();
+      utils.dashboard.getData.invalidate();
+      onClose();
+    },
     onError: (e) => toast.error("Erro ao atualizar pedido: " + e.message),
   });
 
@@ -93,14 +103,16 @@ export default function PedidoModal({ open, onClose, pedido, fornecedores, onSuc
       valor: form.valor,
       dataInicio: form.dataInicio || null,
       dataFim: form.dataFim || null,
+      tipo: form.tipo as "fixo" | "mensal",
+      totalMedicoes: parseInt(form.totalMedicoes) || 12,
       tipoGasto: form.tipoGasto as "capex" | "opex",
       frequencia: form.frequencia as "mensal" | "trimestral" | "semestral" | "anual",
       status: form.status as "ativo" | "concluido" | "cancelado",
       observacoes: form.observacoes || null,
     };
 
-    if (pedido) {
-      updateMutation.mutate({ id: pedido.id, data });
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data });
     } else {
       createMutation.mutate(data);
     }
@@ -112,7 +124,7 @@ export default function PedidoModal({ open, onClose, pedido, fornecedores, onSuc
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading">{pedido ? "Editar Pedido" : "Novo Pedido"}</DialogTitle>
+          <DialogTitle className="font-heading">{editingId ? "Editar Pedido" : "Novo Pedido"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -140,6 +152,20 @@ export default function PedidoModal({ open, onClose, pedido, fornecedores, onSuc
             <div className="space-y-1.5">
               <Label>Valor (R$) <span className="text-destructive">*</span></Label>
               <Input type="number" step="0.01" min="0" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} placeholder="0,00" required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tipo de Medição</Label>
+              <Select value={form.tipo} onValueChange={v => setForm(p => ({ ...p, tipo: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixo">Fixo (nº fixo de medições)</SelectItem>
+                  <SelectItem value="mensal">Mensal (recorrente)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Total de Medições Previstas</Label>
+              <Input type="number" min="1" value={form.totalMedicoes} onChange={e => setForm(p => ({ ...p, totalMedicoes: e.target.value }))} placeholder="12" />
             </div>
             <div className="space-y-1.5">
               <Label>Tipo de Gasto</Label>
@@ -190,7 +216,7 @@ export default function PedidoModal({ open, onClose, pedido, fornecedores, onSuc
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={isLoading} className="bg-primary text-primary-foreground">
-              {isLoading ? "Salvando..." : pedido ? "Salvar Alterações" : "Criar Pedido"}
+              {isLoading ? "Salvando..." : editingId ? "Salvar Alterações" : "Criar Pedido"}
             </Button>
           </div>
         </form>
