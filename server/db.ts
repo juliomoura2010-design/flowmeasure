@@ -160,6 +160,9 @@ export async function getPedidosComStats(fornecedorId?: number, tipo?: string) {
     const totalPago = medicoesPedido
       .filter(m => m.status === "paga")
       .reduce((sum, m) => sum + parseFloat(m.valor || "0"), 0);
+    const totalConsumido = medicoesPedido
+      .filter(m => m.status !== "cancelada")
+      .reduce((sum, m) => sum + parseFloat(m.valor || "0"), 0);
     const totalMedicoesCriadas = medicoesPedido.length;
     const totalMedicoesPrevistas = p.totalMedicoes || 12;
 
@@ -182,6 +185,7 @@ export async function getPedidosComStats(fornecedorId?: number, tipo?: string) {
       totalMedicoesCriadas,
       totalMedicoesPrevistas,
       totalPago,
+      totalConsumido,
       proximaMedicao,
     };
   });

@@ -134,6 +134,7 @@ export default function Pedidos() {
                   <th className="text-left px-4 py-3 font-medium">Tipo</th>
                   <th className="text-left px-4 py-3 font-medium">Medições</th>
                   <th className="text-left px-4 py-3 font-medium">Valor Total</th>
+                  <th className="text-left px-4 py-3 font-medium">Consumido</th>
                   <th className="text-left px-4 py-3 font-medium">Pago</th>
                   <th className="text-left px-4 py-3 font-medium">Próx. Medição</th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -150,6 +151,19 @@ export default function Pedidos() {
                       {p.totalMedicoesCriadas}/{p.totalMedicoesPrevistas}
                     </td>
                     <td className="px-4 py-3 text-gray-700">{formatCurrency(p.valor)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-orange-600">{formatCurrency(p.totalConsumido)}</span>
+                        {parseFloat(p.valor || "0") > 0 && (
+                          <div className="w-full bg-gray-100 rounded-full h-1.5">
+                            <div
+                              className="bg-orange-400 h-1.5 rounded-full"
+                              style={{ width: `${Math.min(100, (p.totalConsumido / parseFloat(p.valor || "1")) * 100).toFixed(0)}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 font-medium text-green-600">{formatCurrency(p.totalPago)}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
                       {p.proximaMedicao

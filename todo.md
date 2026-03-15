@@ -57,3 +57,5 @@
 
 ## Ajustes
 - [x] Valor Previsto na tela de Medições deve mostrar valor por medição (valor pedido / totalMedicoes), não o valor total do pedido
+- [x] Tela de Pedidos: adicionar coluna "Consumido" (soma das medições pagas do pedido)
+- [x] Visão Geral: mostrar valor consumido na tabela "Pedidos em Andamento"

@@ -60,7 +60,8 @@ export default function Dashboard() {
   const medicoesAtraso = (data?.medicoesAtraso ?? []) as Array<{ id: number; numero: string; pedidoNumero: string; dataVencimento: Date | null }>;
   const pedidosEmAndamento = (data?.pedidosEmAndamento ?? []) as Array<{
     id: number; numero: string; fornecedorNome: string; tipo: string; valor: string;
-    totalMedicoesCriadas: number; totalMedicoesPrevistas: number; proximaMedicao: string | null; status: string;
+    totalMedicoesCriadas: number; totalMedicoesPrevistas: number; totalConsumido: number;
+    totalPago: number; proximaMedicao: string | null; status: string;
   }>;
 
   return (
@@ -201,6 +202,7 @@ export default function Dashboard() {
                 <th className="text-left pb-2 font-medium">Fornecedor</th>
                 <th className="text-left pb-2 font-medium">Tipo</th>
                 <th className="text-left pb-2 font-medium">Total</th>
+                <th className="text-left pb-2 font-medium">Consumido</th>
                 <th className="text-left pb-2 font-medium">Progresso</th>
                 <th className="text-left pb-2 font-medium">Próx. Medição</th>
                 <th className="text-left pb-2 font-medium">Status</th>
@@ -209,7 +211,7 @@ export default function Dashboard() {
             <tbody>
               {pedidosEmAndamento.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-400 text-sm">Nenhum pedido em andamento</td>
+                  <td colSpan={8} className="py-8 text-center text-gray-400 text-sm">Nenhum pedido em andamento</td>
                 </tr>
               ) : (
                 pedidosEmAndamento.map((p) => {
@@ -222,6 +224,19 @@ export default function Dashboard() {
                       <td className="py-2.5 text-gray-600">{p.fornecedorNome}</td>
                       <td className="py-2.5"><TipoBadge tipo={p.tipo} /></td>
                       <td className="py-2.5 text-gray-700">{formatCurrency(p.valor)}</td>
+                      <td className="py-2.5">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-orange-600">{formatCurrency(p.totalConsumido)}</span>
+                          {parseFloat(p.valor || "0") > 0 && (
+                            <div className="w-20 bg-gray-100 rounded-full h-1.5">
+                              <div
+                                className="bg-orange-400 h-1.5 rounded-full"
+                                style={{ width: `${Math.min(100, (p.totalConsumido / parseFloat(p.valor || "1")) * 100).toFixed(0)}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-2.5">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500">{p.totalMedicoesCriadas}/{p.totalMedicoesPrevistas}</span>
