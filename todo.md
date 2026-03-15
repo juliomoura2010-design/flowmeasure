@@ -54,3 +54,6 @@
 - [x] Reescrever Fornecedores: campo categoria, contagem de pedidos, total acumulado
 - [x] Atualizar sidebar: seções PAINEL, FLUXO OPERACIONAL, GESTÃO
 - [x] Renomear sistema para PayFlow
+
+## Ajustes
+- [x] Valor Previsto na tela de Medições deve mostrar valor por medição (valor pedido / totalMedicoes), não o valor total do pedido

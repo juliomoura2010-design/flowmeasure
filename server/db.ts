@@ -267,13 +267,16 @@ export async function getControleMedicoesMes(mes: string) {
     const medicaoMes = medicoesMes.find(m => m.pedidoId === p.id);
     const medicoesDoPedido = todasMedicoes.filter(m => m.pedidoId === p.id);
     const ordemProxima = medicoesDoPedido.length + 1;
+    const totalMed = p.totalMedicoes || 12;
+    const valorTotal = parseFloat(p.valor || "0");
+    const valorPorMedicao = totalMed > 0 ? valorTotal / totalMed : valorTotal;
     return {
       pedidoId: p.id,
       pedidoNumero: p.numero,
       fornecedorNome: fornecedor?.nome || "—",
-      valorPrevisto: p.valor,
+      valorPrevisto: valorPorMedicao.toFixed(2),
       tipo: p.tipo,
-      totalMedicoes: p.totalMedicoes || 12,
+      totalMedicoes: totalMed,
       medicaoMesId: medicaoMes?.id || null,
       medicaoMesNumero: medicaoMes?.numero || null,
       medicaoMesStatus: medicaoMes?.status || null,
@@ -320,11 +323,14 @@ export async function getDashboardData() {
   // Medições a criar este mês (com dados do pedido e fornecedor)
   const medicoesCriarMes = pedidosSemMedicaoMes.map(p => {
     const fornecedor = allFornecedores.find(f => f.id === p.fornecedorId);
+    const totalMed = p.totalMedicoes || 12;
+    const valorTotal = parseFloat(p.valor || "0");
+    const valorPorMedicao = totalMed > 0 ? valorTotal / totalMed : valorTotal;
     return {
       pedidoId: p.id,
       pedidoNumero: p.numero,
       fornecedorNome: fornecedor?.nome || "—",
-      valorPrevisto: p.valor,
+      valorPrevisto: valorPorMedicao.toFixed(2),
       tipo: p.tipo,
     };
   });
