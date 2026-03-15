@@ -38,11 +38,16 @@ const defaultForm = {
   observacoes: "",
 };
 
+function formatCurrency(value: number | string | null | undefined) {
+  const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(num);
+}
+
 export default function MedicaoModal({ open, onClose, editingId, defaultMes }: Props) {
   const [form, setForm] = useState({ ...defaultForm, mes: defaultMes || getCurrentMonth() });
 
   const utils = trpc.useUtils();
-  const { data: pedidos = [] } = trpc.pedidos.list.useQuery();
+  const { data: pedidos = [] } = trpc.pedidos.listComStats.useQuery({});
   const { data: medicaoData } = trpc.medicoes.getById.useQuery(
     { id: editingId! },
     { enabled: !!editingId }
@@ -138,10 +143,39 @@ export default function MedicaoModal({ open, onClose, editingId, defaultMes }: P
                 </SelectTrigger>
                 <SelectContent>
                   {(pedidos as any[]).map(p => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.numero}</SelectItem>
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      <span className="font-medium">{p.numero}</span>
+                      <span className="text-gray-400 ml-1">· {p.fornecedorNome}</span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {/* Prévia do pedido selecionado */}
+              {form.pedidoId && (() => {
+                const pedidoSelecionado = (pedidos as any[]).find(p => String(p.id) === form.pedidoId);
+                if (!pedidoSelecionado) return null;
+                const valorPrevisto = pedidoSelecionado.totalMedicoesPrevistas > 0
+                  ? parseFloat(pedidoSelecionado.valor || "0") / pedidoSelecionado.totalMedicoesPrevistas
+                  : parseFloat(pedidoSelecionado.valor || "0");
+                return (
+                  <div className="mt-2 p-3 bg-green-50 border border-green-100 rounded-lg text-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <span className="text-gray-500 text-xs">Fornecedor</span>
+                        <p className="font-medium text-gray-800">{pedidoSelecionado.fornecedorNome}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 text-xs">Valor Previsto / Medição</span>
+                        <p className="font-semibold text-green-700">{formatCurrency(valorPrevisto)}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 text-xs">Medições</span>
+                        <p className="font-medium text-gray-800">{pedidoSelecionado.totalMedicoesCriadas}/{pedidoSelecionado.totalMedicoesPrevistas}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="space-y-1.5">
               <Label>Mês de Referência <span className="text-destructive">*</span></Label>
