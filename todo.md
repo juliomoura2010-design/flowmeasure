@@ -77,3 +77,7 @@
 - [x] Tela de Medições: adicionar filtro por responsável e exibir coluna responsável nas tabelas
 - [x] Visão Geral: filtro de responsável deve filtrar TODAS as seções (KPIs, Medições a Criar, Medições em Atraso, Painel Gerencial, Pedidos em Andamento)
 - [x] BUG: Campo de busca global não retorna nenhum resultado
+- [x] Acesso público total: remover exigência de login (protectedProcedure = publicProcedure) — ADIADO para próxima fase
+- [ ] Tela de login com e-mail/senha — ADIADO para próxima fase
+- [ ] Página de Gestão de Usuários (admin): cadastrar, editar, remover acessos e definir papel (admin/usuário) — ADIADO para próxima fase
+- [ ] Proteção de rotas: redirecionar para login se não autenticado — ADIADO para próxima fase

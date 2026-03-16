@@ -80,3 +80,4 @@ export const medicoes = mysqlTable("medicoes", {
 
 export type Medicao = typeof medicoes.$inferSelect;
 export type InsertMedicao = typeof medicoes.$inferInsert;
+
