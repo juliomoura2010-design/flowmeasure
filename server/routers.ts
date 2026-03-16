@@ -10,6 +10,7 @@ import {
   getMedicoes, getMedicaoById, createMedicao, updateMedicao, deleteMedicao,
   getMedicoesComDados, getControleMedicoesMes,
   getDashboardData, getDashboardGerencial, getRelatoriosData,
+  buscaGlobal,
 } from "./db";
 
 const fornecedorSchema = z.object({
@@ -199,6 +200,12 @@ export const appRouter = router({
 
   relatorios: router({
     getData: protectedProcedure.query(() => getRelatoriosData()),
+  }),
+
+  busca: router({
+    global: protectedProcedure
+      .input(z.object({ query: z.string() }))
+      .query(({ input }) => buscaGlobal(input.query)),
   }),
 });
 

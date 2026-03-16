@@ -30,15 +30,14 @@ import {
   LayoutDashboard,
   LogOut,
   Ruler,
-  Search,
   Shield,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
+import GlobalSearch from "./GlobalSearch";
 
 const menuSections = [
   {
@@ -264,13 +263,7 @@ function DashboardLayoutContent({
         <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-card/95 backdrop-blur px-6">
           {isMobile && <SidebarTrigger className="h-9 w-9 rounded-lg" />}
           <div className="flex-1 flex items-center gap-4">
-            <div className="relative max-w-sm w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                className="pl-9 h-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </div>
+            <GlobalSearch />
           </div>
           <div className="flex items-center gap-3">
             <button className="relative h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors">

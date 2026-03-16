@@ -333,6 +333,7 @@ export async function getMedicoesComDados(mes?: string) {
       pedidoTotalMedicoes: pedido?.totalMedicoes || 12,
       fornecedorNome: fornecedor?.nome || "—",
       ordemMedicao,
+      responsavel: pedido?.responsavel || null,
     };
   });
 }
@@ -374,6 +375,7 @@ export async function getControleMedicoesMes(mes: string) {
       medicaoMesStatus: medicaoMes?.status || null,
       ordemProxima,
       criada: !!medicaoMes,
+      responsavel: p.responsavel || null,
     };
   });
 }
@@ -550,6 +552,46 @@ export async function getDashboardGerencial(mes: string) {
   return Array.from(mapaResponsaveis.values()).sort((a, b) =>
     b.medicoesPendentes - a.medicoesPendentes
   );
+}
+
+// ===== BUSCA GLOBAL =====
+export async function buscaGlobal(query: string) {
+  const db = await getDb();
+  if (!db || !query || query.trim().length < 2) return { pedidos: [], medicoes: [], fornecedores: [] };
+
+  const q = `%${query.trim()}%`;
+
+  const [allPedidos, allMedicoes, allFornecedores] = await Promise.all([
+    db.select().from(pedidos).where(
+      sql`(${pedidos.numero} LIKE ${q} OR ${pedidos.descricao} LIKE ${q} OR ${pedidos.responsavel} LIKE ${q} OR ${pedidos.elementoPep} LIKE ${q})`
+    ).limit(10),
+    db.select().from(medicoes).where(
+      sql`(${medicoes.numero} LIKE ${q} OR ${medicoes.numeroPagamento} LIKE ${q})`
+    ).limit(10),
+    db.select().from(fornecedores).where(
+      sql`(${fornecedores.nome} LIKE ${q} OR ${fornecedores.cnpj} LIKE ${q} OR ${fornecedores.email} LIKE ${q})`
+    ).limit(10),
+  ]);
+
+  // Enriquecer pedidos com nome do fornecedor
+  const allFornecedoresList = await db.select().from(fornecedores);
+  const pedidosEnriquecidos = allPedidos.map(p => ({
+    ...p,
+    fornecedorNome: allFornecedoresList.find(f => f.id === p.fornecedorId)?.nome || "—",
+  }));
+
+  // Enriquecer medições com número do pedido
+  const allPedidosList = await db.select().from(pedidos);
+  const medicoesEnriquecidas = allMedicoes.map(m => ({
+    ...m,
+    pedidoNumero: allPedidosList.find(p => p.id === m.pedidoId)?.numero || "—",
+  }));
+
+  return {
+    pedidos: pedidosEnriquecidos,
+    medicoes: medicoesEnriquecidas,
+    fornecedores: allFornecedores,
+  };
 }
 
 // ===== RELATORIOS =====

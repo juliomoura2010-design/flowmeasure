@@ -74,5 +74,6 @@
 - [x] Visão gerencial no Dashboard: tabela mostrando responsáveis que ainda não criaram medições do mês
 - [x] Visão Geral: filtro por responsável nas tabelas de medições a criar e pedidos em andamento
 - [x] Visão Geral: totalizadores por responsável (total de pedidos, valor total, medições pendentes)
-- [ ] Tela de Medições: adicionar filtro por responsável e exibir coluna responsável nas tabelas
+- [x] Tela de Medições: adicionar filtro por responsável e exibir coluna responsável nas tabelas
 - [x] Visão Geral: filtro de responsável deve filtrar TODAS as seções (KPIs, Medições a Criar, Medições em Atraso, Painel Gerencial, Pedidos em Andamento)
+- [x] BUG: Campo de busca global não retorna nenhum resultado
