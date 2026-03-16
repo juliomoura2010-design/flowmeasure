@@ -65,3 +65,4 @@
 - [x] Campo "Elemento PEP" no cadastro de pedidos, obrigatório quando tipo de gasto for Capex
 - [x] Campo Elemento PEP: máscara e validação no formato CBF.26.001 (3 letras + ponto + 2 dígitos + ponto + 3 dígitos)
 - [x] Tela de Relatórios: substituir erro por página "Em Construção"
+- [x] Bug: campo Elemento PEP com maxLength incorreto, não aceita CBF.26.015 (9 caracteres)

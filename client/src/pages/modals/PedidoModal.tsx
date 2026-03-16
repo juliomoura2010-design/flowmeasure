@@ -140,10 +140,12 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
   const pepValido = !form.elementoPep.trim() || PEP_REGEX.test(form.elementoPep.trim());
 
   // Máscara automática ao digitar
+  // Formato final: CBF.26.015 = 3 letras + '.' + 2 dígitos + '.' + 3 dígitos = 9 chars
+  // cleaned pode ter no máximo 8 chars (3+2+3 sem pontos)
   const handlePepChange = (raw: string) => {
-    const cleaned = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    const cleaned = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 8);
     let masked = "";
-    for (let i = 0; i < cleaned.length && i < 8; i++) {
+    for (let i = 0; i < cleaned.length; i++) {
       if (i === 3 || i === 5) masked += ".";
       masked += cleaned[i];
     }
