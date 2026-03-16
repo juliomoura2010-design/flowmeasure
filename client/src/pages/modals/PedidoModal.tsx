@@ -103,6 +103,11 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
       toast.error("Elemento PEP é obrigatório para pedidos do tipo Capex");
       return;
     }
+    // Validação: formato do PEP
+    if (form.elementoPep.trim() && !PEP_REGEX.test(form.elementoPep.trim())) {
+      toast.error("Formato inválido. Use o padrão: CBF.26.001");
+      return;
+    }
 
     const data = {
       numero: form.numero,
@@ -129,6 +134,21 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const isCapex = form.tipoGasto === "capex";
+
+  // Formato PEP: CBF.26.001 (3 letras + ponto + 2 dígitos + ponto + 3 dígitos)
+  const PEP_REGEX = /^[A-Za-z]{3}\.[0-9]{2}\.[0-9]{3}$/;
+  const pepValido = !form.elementoPep.trim() || PEP_REGEX.test(form.elementoPep.trim());
+
+  // Máscara automática ao digitar
+  const handlePepChange = (raw: string) => {
+    const cleaned = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    let masked = "";
+    for (let i = 0; i < cleaned.length && i < 8; i++) {
+      if (i === 3 || i === 5) masked += ".";
+      masked += cleaned[i];
+    }
+    setForm(p => ({ ...p, elementoPep: masked }));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -181,12 +201,27 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
               </Label>
               <Input
                 value={form.elementoPep}
-                onChange={e => setForm(p => ({ ...p, elementoPep: e.target.value }))}
-                placeholder="Ex: A-BR-0001-00001"
-                className={isCapex && !form.elementoPep.trim() ? "border-orange-300 focus-visible:ring-orange-400" : ""}
+                onChange={e => handlePepChange(e.target.value)}
+                placeholder="Ex: CBF.26.001"
+                maxLength={9}
+                className={
+                  isCapex && !form.elementoPep.trim()
+                    ? "border-orange-300 focus-visible:ring-orange-400"
+                    : form.elementoPep.trim() && !pepValido
+                    ? "border-red-400 focus-visible:ring-red-400"
+                    : form.elementoPep.trim() && pepValido
+                    ? "border-green-400 focus-visible:ring-green-400"
+                    : ""
+                }
               />
               {isCapex && !form.elementoPep.trim() && (
                 <p className="text-xs text-orange-500">Obrigatório para pedidos Capex</p>
+              )}
+              {form.elementoPep.trim() && !pepValido && (
+                <p className="text-xs text-red-500">Formato inválido — use o padrão: CBF.26.001</p>
+              )}
+              {form.elementoPep.trim() && pepValido && (
+                <p className="text-xs text-green-600">✓ Formato válido</p>
               )}
             </div>
 
