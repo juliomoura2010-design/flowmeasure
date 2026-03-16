@@ -1,6 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
-import { CheckCircle2, FileText, AlertTriangle, Clock, Plus, Users, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, FileText, AlertTriangle, Clock, Plus, Users, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import { Link } from "wouter";
 import { useState, useMemo } from "react";
 import MedicaoModal from "./modals/MedicaoModal";
@@ -105,18 +105,19 @@ export default function Dashboard() {
     utils.dashboard.getGerencial.invalidate();
   };
 
-  const medicoesCriarLista = (data?.medicoesCriarMesLista ?? []) as Array<{
-    pedidoId: number; pedidoNumero: string; fornecedorNome: string; valorPrevisto: string; tipo: string;
-  }>;
-  const medicoesAtraso = (data?.medicoesAtraso ?? []) as Array<{
-    id: number; numero: string; pedidoNumero: string; dataVencimento: Date | null;
-  }>;
-  const pedidosEmAndamento = (data?.pedidosEmAndamento ?? []) as Array<{
+  type MedicaoCriar = {
+    pedidoId: number; pedidoNumero: string; fornecedorNome: string;
+    valorPrevisto: string; tipo: string; responsavel?: string | null;
+  };
+  type MedicaoAtraso = {
+    id: number; numero: string; pedidoNumero: string;
+    dataVencimento: Date | null; responsavel?: string | null;
+  };
+  type PedidoAndamento = {
     id: number; numero: string; fornecedorNome: string; tipo: string; valor: string;
     totalMedicoesCriadas: number; totalMedicoesPrevistas: number; totalConsumido: number;
     totalPago: number; proximaMedicao: string | null; status: string; responsavel?: string | null;
-  }>;
-
+  };
   type GerencialItem = {
     responsavel: string;
     totalPedidos: number;
@@ -126,20 +127,68 @@ export default function Dashboard() {
     pedidosPendentes: Array<{ pedidoId: number; pedidoNumero: string; fornecedorNome: string; valorPrevisto: string }>;
   };
 
+  const medicoesCriarListaAll = (data?.medicoesCriarMesLista ?? []) as MedicaoCriar[];
+  const medicoesAtrasoAll = (data?.medicoesAtraso ?? []) as MedicaoAtraso[];
+  const pedidosEmAndamentoAll = (data?.pedidosEmAndamento ?? []) as PedidoAndamento[];
   const gerencialData = gerencial as GerencialItem[];
 
-  // Lista de responsáveis únicos para o filtro
+  // Mapas de KPIs por responsável vindos do backend
+  const pedidosAtivosPorResp = (data?.pedidosAtivosPorResponsavel ?? {}) as Record<string, number>;
+  const medicoesPagasPorResp = (data?.medicoesPagasPorResponsavel ?? {}) as Record<string, number>;
+  const valorEmAtrasoPorResp = (data?.valorEmAtrasoPorResponsavel ?? {}) as Record<string, number>;
+
+  // Lista de responsáveis únicos (union de todas as fontes de dados)
   const responsaveisUnicos = useMemo(() => {
-    return Array.from(new Set(gerencialData.map(g => g.responsavel))).sort();
-  }, [gerencialData]);
+    const set = new Set<string>();
+    gerencialData.forEach(g => set.add(g.responsavel));
+    medicoesCriarListaAll.forEach(m => { if (m.responsavel) set.add(m.responsavel); });
+    medicoesAtrasoAll.forEach(m => { if (m.responsavel) set.add(m.responsavel); });
+    pedidosEmAndamentoAll.forEach(p => { if (p.responsavel) set.add(p.responsavel); });
+    Object.keys(pedidosAtivosPorResp).forEach(r => set.add(r));
+    return Array.from(set).sort();
+  }, [gerencialData, medicoesCriarListaAll, medicoesAtrasoAll, pedidosEmAndamentoAll, pedidosAtivosPorResp]);
 
-  // Dados filtrados por responsável selecionado
+  const filtrado = filtroResponsavel !== "todos";
+
+  // ── Filtros aplicados em cada seção ──────────────────────────────────────
+  const medicoesCriarLista = useMemo(() => {
+    if (!filtrado) return medicoesCriarListaAll;
+    return medicoesCriarListaAll.filter(m => (m.responsavel || "Sem responsável") === filtroResponsavel);
+  }, [medicoesCriarListaAll, filtroResponsavel, filtrado]);
+
+  const medicoesAtraso = useMemo(() => {
+    if (!filtrado) return medicoesAtrasoAll;
+    return medicoesAtrasoAll.filter(m => (m.responsavel || "Sem responsável") === filtroResponsavel);
+  }, [medicoesAtrasoAll, filtroResponsavel, filtrado]);
+
+  const pedidosFiltrados = useMemo(() => {
+    if (!filtrado) return pedidosEmAndamentoAll;
+    return pedidosEmAndamentoAll.filter(p => (p.responsavel || "Sem responsável") === filtroResponsavel);
+  }, [pedidosEmAndamentoAll, filtroResponsavel, filtrado]);
+
   const gerencialFiltrado = useMemo(() => {
-    if (filtroResponsavel === "todos") return gerencialData;
+    if (!filtrado) return gerencialData;
     return gerencialData.filter(g => g.responsavel === filtroResponsavel);
-  }, [gerencialData, filtroResponsavel]);
+  }, [gerencialData, filtroResponsavel, filtrado]);
 
-  // Totalizadores gerenciais
+  // ── KPIs filtrados ────────────────────────────────────────────────────────
+  const kpiPedidosAtivos = filtrado
+    ? (pedidosAtivosPorResp[filtroResponsavel] ?? 0)
+    : (data?.pedidosAtivos ?? 0);
+
+  const kpiMedicoesPagas = filtrado
+    ? (medicoesPagasPorResp[filtroResponsavel] ?? 0)
+    : (data?.totalMedicoesPagas ?? 0);
+
+  const kpiMedicoesCriar = medicoesCriarLista.length;
+
+  const kpiValorAtraso = filtrado
+    ? (valorEmAtrasoPorResp[filtroResponsavel] ?? 0)
+    : (data?.valorEmAtraso ?? 0);
+
+  const kpiAtrasoCount = medicoesAtraso.length;
+
+  // ── Totalizadores do painel gerencial ────────────────────────────────────
   const totaisGerenciais = useMemo(() => {
     return gerencialFiltrado.reduce((acc, g) => ({
       totalPedidos: acc.totalPedidos + g.totalPedidos,
@@ -148,12 +197,6 @@ export default function Dashboard() {
       medicoesPendentes: acc.medicoesPendentes + g.medicoesPendentes,
     }), { totalPedidos: 0, valorTotal: 0, medicoesCriadas: 0, medicoesPendentes: 0 });
   }, [gerencialFiltrado]);
-
-  // Pedidos em andamento filtrados por responsável
-  const pedidosFiltrados = useMemo(() => {
-    if (filtroResponsavel === "todos") return pedidosEmAndamento;
-    return pedidosEmAndamento.filter(p => (p.responsavel || "Sem responsável") === filtroResponsavel);
-  }, [pedidosEmAndamento, filtroResponsavel]);
 
   if (isLoading) {
     return (
@@ -167,13 +210,21 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-heading font-bold text-gray-900">Visão Geral</h1>
+      {/* Cabeçalho com filtro */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
-          {/* Filtro global por responsável */}
+          <h1 className="text-2xl font-heading font-bold text-gray-900">Visão Geral</h1>
+          {filtrado && (
+            <span className="inline-flex items-center gap-1.5 bg-violet-100 text-violet-700 text-xs font-semibold px-3 py-1 rounded-full">
+              <Filter className="h-3 w-3" />
+              {filtroResponsavel}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
           <select
             value={filtroResponsavel}
-            onChange={e => setFiltroResponsavel(e.target.value)}
+            onChange={e => { setFiltroResponsavel(e.target.value); setExpandedResponsavel(null); }}
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             <option value="todos">Todos os responsáveis</option>
@@ -189,13 +240,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — todos filtrados */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-100 p-5">
           <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center mb-3">
             <FileText className="h-5 w-5 text-green-600" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">{data?.pedidosAtivos ?? 0}</div>
+          <div className="text-2xl font-bold text-gray-900">{kpiPedidosAtivos}</div>
           <div className="text-sm text-gray-500 mt-1">Pedidos Ativos</div>
         </div>
 
@@ -203,43 +254,46 @@ export default function Dashboard() {
           <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center mb-3">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">{formatCurrency(data?.totalMedicoesPagas ?? 0)}</div>
+          <div className="text-2xl font-bold text-gray-900">{formatCurrency(kpiMedicoesPagas)}</div>
           <div className="text-sm text-gray-500 mt-1">Medições Pagas (total)</div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 p-5 relative">
-          {(data?.medicoesCriarMes ?? 0) > 0 && (
+          {kpiMedicoesCriar > 0 && (
             <span className="absolute top-3 right-3 bg-red-100 text-red-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-              {data?.medicoesCriarMes}
+              {kpiMedicoesCriar}
             </span>
           )}
           <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
             <AlertTriangle className="h-5 w-5 text-orange-500" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">{data?.medicoesCriarMes ?? 0}</div>
+          <div className="text-2xl font-bold text-gray-900">{kpiMedicoesCriar}</div>
           <div className="text-sm text-gray-500 mt-1">Medições p/ Criar (mês)</div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 p-5 relative">
-          {(medicoesAtraso.length) > 0 && (
+          {kpiAtrasoCount > 0 && (
             <span className="absolute top-3 right-3 bg-red-100 text-red-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-              {medicoesAtraso.length}
+              {kpiAtrasoCount}
             </span>
           )}
           <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center mb-3">
             <Clock className="h-5 w-5 text-red-500" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">{formatCurrency(data?.valorEmAtraso ?? 0)}</div>
+          <div className="text-2xl font-bold text-gray-900">{formatCurrency(kpiValorAtraso)}</div>
           <div className="text-sm text-gray-500 mt-1">Em Atraso</div>
         </div>
       </div>
 
-      {/* Tabelas lado a lado */}
+      {/* Medições a Criar + Medições em Atraso */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* Medições a Criar Este Mês */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-heading font-semibold text-gray-900">Medições a Criar Este Mês</h2>
+            <h2 className="font-heading font-semibold text-gray-900">
+              Medições a Criar Este Mês
+              {filtrado && <span className="text-xs text-violet-600 font-normal ml-2">· {filtroResponsavel}</span>}
+            </h2>
             <Link href="/medicoes">
               <button className="text-sm text-primary hover:underline border border-gray-200 px-3 py-1 rounded-lg">Ver controle</button>
             </Link>
@@ -247,7 +301,9 @@ export default function Dashboard() {
           {medicoesCriarLista.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm">
               <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-400" />
-              ✓ Todas as medições do mês criadas
+              {filtrado
+                ? `✓ Nenhuma medição pendente para ${filtroResponsavel}`
+                : "✓ Todas as medições do mês criadas"}
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -255,6 +311,7 @@ export default function Dashboard() {
                 <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
                   <th className="text-left pb-2 font-medium">Pedido</th>
                   <th className="text-left pb-2 font-medium">Fornecedor</th>
+                  {!filtrado && <th className="text-left pb-2 font-medium">Responsável</th>}
                   <th className="text-left pb-2 font-medium">Valor Previsto</th>
                   <th className="text-left pb-2 font-medium">Situação</th>
                 </tr>
@@ -264,6 +321,18 @@ export default function Dashboard() {
                   <tr key={item.pedidoId} className="border-b border-gray-50 last:border-0">
                     <td className="py-2.5 font-medium text-gray-900">{item.pedidoNumero}</td>
                     <td className="py-2.5 text-gray-600">{item.fornecedorNome}</td>
+                    {!filtrado && (
+                      <td className="py-2.5">
+                        {item.responsavel ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                            <AvatarInitial nome={item.responsavel} />
+                            <span className="truncate max-w-20">{item.responsavel}</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="py-2.5 text-gray-700">{formatCurrency(item.valorPrevisto)}</td>
                     <td className="py-2.5">
                       <div className="flex items-center gap-2">
@@ -285,7 +354,10 @@ export default function Dashboard() {
 
         {/* Medições em Atraso */}
         <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <h2 className="font-heading font-semibold text-gray-900 mb-4">Medições em Atraso</h2>
+          <h2 className="font-heading font-semibold text-gray-900 mb-4">
+            Medições em Atraso
+            {filtrado && <span className="text-xs text-violet-600 font-normal ml-2">· {filtroResponsavel}</span>}
+          </h2>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
@@ -297,7 +369,9 @@ export default function Dashboard() {
             <tbody>
               {medicoesAtraso.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="py-8 text-center text-gray-400 text-sm">Nenhum atraso</td>
+                  <td colSpan={3} className="py-8 text-center text-gray-400 text-sm">
+                    {filtrado ? `Nenhum atraso para ${filtroResponsavel}` : "Nenhum atraso"}
+                  </td>
                 </tr>
               ) : (
                 medicoesAtraso.map((m) => (
@@ -353,7 +427,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Tabela por responsável */}
+        {/* Lista por responsável */}
         {loadingGerencial ? (
           <div className="flex items-center justify-center h-24">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
@@ -361,7 +435,9 @@ export default function Dashboard() {
         ) : gerencialFiltrado.length === 0 ? (
           <div className="text-center py-8 text-gray-400 text-sm">
             <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            Nenhum responsável encontrado para {getMesLabel(mesGerencial)}
+            {filtrado
+              ? `Nenhum dado para ${filtroResponsavel} em ${getMesLabel(mesGerencial)}`
+              : `Nenhum responsável encontrado para ${getMesLabel(mesGerencial)}`}
           </div>
         ) : (
           <div className="space-y-2">
@@ -374,7 +450,6 @@ export default function Dashboard() {
 
               return (
                 <div key={item.responsavel} className={`border rounded-lg overflow-hidden transition-all ${tudo_ok ? "border-green-100" : "border-orange-100"}`}>
-                  {/* Linha resumo */}
                   <button
                     className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50/70 transition-colors"
                     onClick={() => setExpandedResponsavel(isExpanded ? null : item.responsavel)}
@@ -420,7 +495,6 @@ export default function Dashboard() {
                     )}
                   </button>
 
-                  {/* Detalhes expandidos: pedidos pendentes */}
                   {isExpanded && item.pedidosPendentes.length > 0 && (
                     <div className="border-t border-orange-100 bg-orange-50/40 px-4 py-3">
                       <p className="text-xs text-orange-600 font-medium mb-2 uppercase tracking-wide">Pedidos sem medição em {getMesLabel(mesGerencial)}:</p>
@@ -455,12 +529,10 @@ export default function Dashboard() {
       {/* Pedidos em Andamento */}
       <div className="bg-white rounded-xl border border-gray-100 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-heading font-semibold text-gray-900">Pedidos em Andamento</h2>
-          {filtroResponsavel !== "todos" && (
-            <span className="text-xs bg-violet-50 text-violet-700 px-2.5 py-1 rounded-full font-medium">
-              Responsável: {filtroResponsavel}
-            </span>
-          )}
+          <h2 className="font-heading font-semibold text-gray-900">
+            Pedidos em Andamento
+            {filtrado && <span className="text-xs text-violet-600 font-normal ml-2">· {filtroResponsavel}</span>}
+          </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -468,7 +540,7 @@ export default function Dashboard() {
               <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
                 <th className="text-left pb-2 font-medium">Pedido</th>
                 <th className="text-left pb-2 font-medium">Fornecedor</th>
-                <th className="text-left pb-2 font-medium">Responsável</th>
+                {!filtrado && <th className="text-left pb-2 font-medium">Responsável</th>}
                 <th className="text-left pb-2 font-medium">Tipo</th>
                 <th className="text-left pb-2 font-medium">Total</th>
                 <th className="text-left pb-2 font-medium">Consumido</th>
@@ -480,7 +552,9 @@ export default function Dashboard() {
             <tbody>
               {pedidosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-400 text-sm">Nenhum pedido em andamento</td>
+                  <td colSpan={filtrado ? 8 : 9} className="py-8 text-center text-gray-400 text-sm">
+                    {filtrado ? `Nenhum pedido em andamento para ${filtroResponsavel}` : "Nenhum pedido em andamento"}
+                  </td>
                 </tr>
               ) : (
                 pedidosFiltrados.map((p) => {
@@ -491,16 +565,18 @@ export default function Dashboard() {
                     <tr key={p.id} className="border-b border-gray-50 last:border-0">
                       <td className="py-2.5 font-medium text-gray-900">{p.numero}</td>
                       <td className="py-2.5 text-gray-600">{p.fornecedorNome}</td>
-                      <td className="py-2.5">
-                        {p.responsavel ? (
-                          <span className="inline-flex items-center gap-1.5 text-sm text-gray-700">
-                            <AvatarInitial nome={p.responsavel} />
-                            <span className="truncate max-w-24">{p.responsavel}</span>
-                          </span>
-                        ) : (
-                          <span className="text-gray-300 text-xs">—</span>
-                        )}
-                      </td>
+                      {!filtrado && (
+                        <td className="py-2.5">
+                          {p.responsavel ? (
+                            <span className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                              <AvatarInitial nome={p.responsavel} />
+                              <span className="truncate max-w-24">{p.responsavel}</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-300 text-xs">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="py-2.5"><TipoBadge tipo={p.tipo} /></td>
                       <td className="py-2.5 text-gray-700">{formatCurrency(p.valor)}</td>
                       <td className="py-2.5">

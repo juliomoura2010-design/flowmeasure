@@ -430,6 +430,7 @@ export async function getDashboardData() {
       fornecedorNome: fornecedor?.nome || "—",
       valorPrevisto: valorPorMedicao.toFixed(2),
       tipo: p.tipo,
+      responsavel: p.responsavel || null,
     };
   });
 
@@ -439,8 +440,30 @@ export async function getDashboardData() {
     return {
       ...m,
       pedidoNumero: pedido?.numero || "—",
+      responsavel: pedido?.responsavel || null,
     };
   });
+
+  // KPIs por responsável (para filtrar os cards quando filtro ativo)
+  const pedidosAtivosPorResponsavel = pedidosAtivos.reduce((acc, p) => {
+    const r = p.responsavel || "Sem responsável";
+    acc[r] = (acc[r] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const medicoesPagasPorResponsavel = medicoesPagas.reduce((acc, m) => {
+    const pedido = allPedidos.find(p => p.id === m.pedidoId);
+    const r = pedido?.responsavel || "Sem responsável";
+    acc[r] = (acc[r] || 0) + parseFloat(m.valor || "0");
+    return acc;
+  }, {} as Record<string, number>);
+
+  const valorEmAtrasoPorResponsavel = medicoesEmAtraso.reduce((acc, m) => {
+    const pedido = allPedidos.find(p => p.id === m.pedidoId);
+    const r = pedido?.responsavel || "Sem responsável";
+    acc[r] = (acc[r] || 0) + parseFloat(m.valor || "0");
+    return acc;
+  }, {} as Record<string, number>);
 
   return {
     pedidosAtivos: pedidosAtivos.length,
@@ -450,6 +473,10 @@ export async function getDashboardData() {
     medicoesCriarMesLista: medicoesCriarMes,
     medicoesAtraso: medicoesAtrasoComDados,
     pedidosEmAndamento,
+    // dados por responsável para filtro nos KPIs
+    pedidosAtivosPorResponsavel,
+    medicoesPagasPorResponsavel,
+    valorEmAtrasoPorResponsavel,
   };
 }
 
