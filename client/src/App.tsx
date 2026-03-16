@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Fornecedores from "./pages/Fornecedores";
 import Medicoes from "./pages/Medicoes";
 import Pedidos from "./pages/Pedidos";
+import Relatorios from "./pages/Relatorios";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/pedidos" component={Pedidos} />
       <Route path="/medicoes" component={Medicoes} />
       <Route path="/fornecedores" component={Fornecedores} />
+      <Route path="/relatorios" component={Relatorios} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

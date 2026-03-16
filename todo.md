@@ -64,3 +64,4 @@
 - [x] Botão "Criar" nas medições pendentes que abre modal pré-preenchido com dados do pedido (pedidoId, mês, valor previsto)
 - [x] Campo "Elemento PEP" no cadastro de pedidos, obrigatório quando tipo de gasto for Capex
 - [x] Campo Elemento PEP: máscara e validação no formato CBF.26.001 (3 letras + ponto + 2 dígitos + ponto + 3 dígitos)
+- [x] Tela de Relatórios: substituir erro por página "Em Construção"
