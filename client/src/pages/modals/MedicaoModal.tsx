@@ -13,6 +13,8 @@ type Props = {
   onClose: () => void;
   editingId?: number | null;
   defaultMes?: string;
+  defaultPedidoId?: number | null;  // pré-preenche o pedido ao abrir
+  defaultValor?: string | null;     // pré-preenche o valor previsto
 };
 
 function toDateInput(d: Date | string | null | undefined) {
@@ -43,8 +45,13 @@ function formatCurrency(value: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(num);
 }
 
-export default function MedicaoModal({ open, onClose, editingId, defaultMes }: Props) {
-  const [form, setForm] = useState({ ...defaultForm, mes: defaultMes || getCurrentMonth() });
+export default function MedicaoModal({ open, onClose, editingId, defaultMes, defaultPedidoId, defaultValor }: Props) {
+  const [form, setForm] = useState({
+    ...defaultForm,
+    mes: defaultMes || getCurrentMonth(),
+    pedidoId: defaultPedidoId ? String(defaultPedidoId) : "",
+    valor: defaultValor || "",
+  });
 
   const utils = trpc.useUtils();
   const { data: pedidos = [] } = trpc.pedidos.listComStats.useQuery({});
@@ -68,7 +75,12 @@ export default function MedicaoModal({ open, onClose, editingId, defaultMes }: P
         observacoes: medicaoData.observacoes ?? "",
       });
     } else if (!editingId) {
-      setForm({ ...defaultForm, mes: defaultMes || getCurrentMonth() });
+      setForm({
+        ...defaultForm,
+        mes: defaultMes || getCurrentMonth(),
+        pedidoId: defaultPedidoId ? String(defaultPedidoId) : "",
+        valor: defaultValor || "",
+      });
     }
   }, [editingId, medicaoData, open, defaultMes]);
 

@@ -1,7 +1,9 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
-import { CheckCircle2, FileText, AlertTriangle, Clock } from "lucide-react";
+import { CheckCircle2, FileText, AlertTriangle, Clock, Plus } from "lucide-react";
 import { Link } from "wouter";
+import { useState } from "react";
+import MedicaoModal from "./modals/MedicaoModal";
 
 function formatCurrency(value: number | string | null | undefined) {
   const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
@@ -45,6 +47,23 @@ function TipoBadge({ tipo }: { tipo: string }) {
 
 export default function Dashboard() {
   const { data, isLoading } = trpc.dashboard.getData.useQuery();
+  const utils = trpc.useUtils();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [defaultPedidoId, setDefaultPedidoId] = useState<number | null>(null);
+  const [defaultValor, setDefaultValor] = useState<string | null>(null);
+
+  const handleCriarPendente = (pedidoId: number, valorPrevisto: string) => {
+    setDefaultPedidoId(pedidoId);
+    setDefaultValor(valorPrevisto);
+    setModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setDefaultPedidoId(null);
+    setDefaultValor(null);
+    utils.dashboard.getData.invalidate();
+  };
 
   if (isLoading) {
     return (
@@ -152,7 +171,15 @@ export default function Dashboard() {
                     <td className="py-2.5 text-gray-600">{item.fornecedorNome}</td>
                     <td className="py-2.5 text-gray-700">{formatCurrency(item.valorPrevisto)}</td>
                     <td className="py-2.5">
-                      <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">Pendente</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">Pendente</span>
+                        <button
+                          onClick={() => handleCriarPendente(item.pedidoId, item.valorPrevisto)}
+                          className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2.5 py-1 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                        >
+                          <Plus className="h-3 w-3" /> Criar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -255,6 +282,14 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+      {modalOpen && (
+        <MedicaoModal
+          open={modalOpen}
+          onClose={handleCloseModal}
+          defaultPedidoId={defaultPedidoId}
+          defaultValor={defaultValor}
+        />
+      )}
     </DashboardLayout>
   );
 }

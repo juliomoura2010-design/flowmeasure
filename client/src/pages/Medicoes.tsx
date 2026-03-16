@@ -68,6 +68,8 @@ export default function Medicoes() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [pagarId, setPagarId] = useState<number | null>(null);
+  const [defaultPedidoId, setDefaultPedidoId] = useState<number | null>(null);
+  const [defaultValor, setDefaultValor] = useState<string | null>(null);
 
   const mesSelecionado = selectedPeriod === "atual" ? mesAtual
     : selectedPeriod === "anterior" ? mesAnterior
@@ -114,9 +116,18 @@ export default function Medicoes() {
     }
   };
 
+  const handleCriarPendente = (pedidoId: number, valorPrevisto: string) => {
+    setEditingId(null);
+    setDefaultPedidoId(pedidoId);
+    setDefaultValor(valorPrevisto);
+    setModalOpen(true);
+  };
+
   const handleCloseModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    setDefaultPedidoId(null);
+    setDefaultValor(null);
     utils.medicoes.listComDados.invalidate();
     utils.medicoes.controleMes.invalidate();
     utils.dashboard.getData.invalidate();
@@ -243,7 +254,15 @@ export default function Medicoes() {
                       {item.criada ? (
                         <StatusBadge status={item.medicaoMesStatus || "pendente"} />
                       ) : (
-                        <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">Pendente criação</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">Pendente</span>
+                          <button
+                            onClick={() => handleCriarPendente(item.pedidoId, item.valorPrevisto)}
+                            className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2.5 py-1 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                          >
+                            <Plus className="h-3 w-3" /> Criar
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -335,6 +354,8 @@ export default function Medicoes() {
           onClose={handleCloseModal}
           editingId={editingId}
           defaultMes={mesSelecionado}
+          defaultPedidoId={defaultPedidoId}
+          defaultValor={defaultValor}
         />
       )}
 
