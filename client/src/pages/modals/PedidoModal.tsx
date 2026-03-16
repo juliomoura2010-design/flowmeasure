@@ -31,6 +31,7 @@ const defaultForm = {
   dataFim: "",
   tipo: "mensal",
   totalMedicoes: "12",
+  elementoPep: "",
   tipoGasto: "opex",
   frequencia: "mensal",
   status: "ativo",
@@ -60,6 +61,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
         dataFim: toDateInput(pedidoData.dataFim),
         tipo: pedidoData.tipo ?? "mensal",
         totalMedicoes: String(pedidoData.totalMedicoes ?? 12),
+        elementoPep: (pedidoData as any).elementoPep ?? "",
         tipoGasto: pedidoData.tipoGasto,
         frequencia: pedidoData.frequencia,
         status: pedidoData.status,
@@ -96,6 +98,12 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
     if (!form.fornecedorId) { toast.error("Fornecedor é obrigatório"); return; }
     if (!form.valor) { toast.error("Valor é obrigatório"); return; }
 
+    // Validação: PEP obrigatório quando Capex
+    if (form.tipoGasto === "capex" && !form.elementoPep.trim()) {
+      toast.error("Elemento PEP é obrigatório para pedidos do tipo Capex");
+      return;
+    }
+
     const data = {
       numero: form.numero,
       fornecedorId: parseInt(form.fornecedorId),
@@ -105,6 +113,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
       dataFim: form.dataFim || null,
       tipo: form.tipo as "fixo" | "mensal",
       totalMedicoes: parseInt(form.totalMedicoes) || 12,
+      elementoPep: form.elementoPep.trim() || null,
       tipoGasto: form.tipoGasto as "capex" | "opex",
       frequencia: form.frequencia as "mensal" | "trimestral" | "semestral" | "anual",
       status: form.status as "ativo" | "concluido" | "cancelado",
@@ -119,6 +128,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
   };
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
+  const isCapex = form.tipoGasto === "capex";
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -154,6 +164,33 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
               <Input type="number" step="0.01" min="0" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} placeholder="0,00" required />
             </div>
             <div className="space-y-1.5">
+              <Label>Tipo de Gasto</Label>
+              <Select value={form.tipoGasto} onValueChange={v => setForm(p => ({ ...p, tipoGasto: v, elementoPep: v === "opex" ? "" : p.elementoPep }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="capex">Capex</SelectItem>
+                  <SelectItem value="opex">Opex</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Campo PEP — aparece e é obrigatório apenas quando Capex */}
+            <div className={`sm:col-span-2 space-y-1.5 transition-all ${isCapex ? "opacity-100" : "opacity-0 pointer-events-none h-0 overflow-hidden"}`}>
+              <Label>
+                Elemento PEP {isCapex && <span className="text-destructive">*</span>}
+              </Label>
+              <Input
+                value={form.elementoPep}
+                onChange={e => setForm(p => ({ ...p, elementoPep: e.target.value }))}
+                placeholder="Ex: A-BR-0001-00001"
+                className={isCapex && !form.elementoPep.trim() ? "border-orange-300 focus-visible:ring-orange-400" : ""}
+              />
+              {isCapex && !form.elementoPep.trim() && (
+                <p className="text-xs text-orange-500">Obrigatório para pedidos Capex</p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
               <Label>Tipo de Medição</Label>
               <Select value={form.tipo} onValueChange={v => setForm(p => ({ ...p, tipo: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -166,16 +203,6 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
             <div className="space-y-1.5">
               <Label>Total de Medições Previstas</Label>
               <Input type="number" min="1" value={form.totalMedicoes} onChange={e => setForm(p => ({ ...p, totalMedicoes: e.target.value }))} placeholder="12" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tipo de Gasto</Label>
-              <Select value={form.tipoGasto} onValueChange={v => setForm(p => ({ ...p, tipoGasto: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="capex">Capex</SelectItem>
-                  <SelectItem value="opex">Opex</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Data Início</Label>

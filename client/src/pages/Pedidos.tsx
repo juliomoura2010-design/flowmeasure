@@ -132,6 +132,7 @@ export default function Pedidos() {
                   <th className="text-left px-5 py-3 font-medium">Nº Pedido</th>
                   <th className="text-left px-4 py-3 font-medium">Fornecedor</th>
                   <th className="text-left px-4 py-3 font-medium">Tipo</th>
+                  <th className="text-left px-4 py-3 font-medium">Elemento PEP</th>
                   <th className="text-left px-4 py-3 font-medium">Medições</th>
                   <th className="text-left px-4 py-3 font-medium">Valor Total</th>
                   <th className="text-left px-4 py-3 font-medium">Consumido</th>
@@ -147,6 +148,15 @@ export default function Pedidos() {
                     <td className="px-5 py-3 font-semibold text-gray-900">{p.numero}</td>
                     <td className="px-4 py-3 text-gray-700">{p.fornecedorNome}</td>
                     <td className="px-4 py-3"><TipoBadge tipo={p.tipo} /></td>
+                    <td className="px-4 py-3">
+                      {p.elementoPep ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                          {p.elementoPep}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-600 font-medium">
                       {p.totalMedicoesCriadas}/{p.totalMedicoesPrevistas}
                     </td>

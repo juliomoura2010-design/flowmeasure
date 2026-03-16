@@ -35,6 +35,7 @@ const pedidoSchema = z.object({
   dataFim: z.string().optional().nullable(),
   tipo: z.enum(["fixo", "mensal"]).default("mensal"),
   totalMedicoes: z.number().int().min(1).default(12),
+  elementoPep: z.string().optional().nullable(), // obrigatório quando tipoGasto = capex (validado no frontend)
   tipoGasto: z.enum(["capex", "opex"]).default("opex"),
   frequencia: z.enum(["mensal", "trimestral", "semestral", "anual"]).default("mensal"),
   status: z.enum(["ativo", "concluido", "cancelado"]).default("ativo"),

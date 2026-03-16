@@ -62,3 +62,4 @@
 - [x] Modal de criação de medição: ao selecionar pedido, exibir fornecedor e valor previsto da medição como prévia
 - [x] Bug: Medições pendentes aparecem para pedidos cujo dataInicio é posterior ao mês selecionado (ex: pedido iniciado em março aparece como pendente em fevereiro)
 - [x] Botão "Criar" nas medições pendentes que abre modal pré-preenchido com dados do pedido (pedidoId, mês, valor previsto)
+- [x] Campo "Elemento PEP" no cadastro de pedidos, obrigatório quando tipo de gasto for Capex

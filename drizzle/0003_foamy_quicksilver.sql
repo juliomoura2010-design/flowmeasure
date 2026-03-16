@@ -1,0 +1,1 @@
+ALTER TABLE `pedidos` ADD `elementoPep` varchar(100);
