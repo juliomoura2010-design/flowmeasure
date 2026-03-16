@@ -133,6 +133,7 @@ export default function Pedidos() {
                   <th className="text-left px-4 py-3 font-medium">Fornecedor</th>
                   <th className="text-left px-4 py-3 font-medium">Tipo</th>
                   <th className="text-left px-4 py-3 font-medium">Elemento PEP</th>
+                  <th className="text-left px-4 py-3 font-medium">Responsável</th>
                   <th className="text-left px-4 py-3 font-medium">Medições</th>
                   <th className="text-left px-4 py-3 font-medium">Valor Total</th>
                   <th className="text-left px-4 py-3 font-medium">Consumido</th>
@@ -152,6 +153,18 @@ export default function Pedidos() {
                       {p.elementoPep ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-blue-50 text-blue-700 border border-blue-100">
                           {p.elementoPep}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.responsavel ? (
+                        <span className="inline-flex items-center gap-1 text-sm text-gray-700">
+                          <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            {p.responsavel.charAt(0).toUpperCase()}
+                          </span>
+                          {p.responsavel}
                         </span>
                       ) : (
                         <span className="text-gray-300 text-xs">—</span>

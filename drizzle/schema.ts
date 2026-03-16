@@ -50,6 +50,7 @@ export const pedidos = mysqlTable("pedidos", {
   totalMedicoes: int("totalMedicoes").default(12), // total de medições previstas
   elementoPep: varchar("elementoPep", { length: 100 }), // obrigatório quando tipoGasto = capex
   tipoGasto: mysqlEnum("tipoGasto", ["capex", "opex"]).default("opex").notNull(),
+  responsavel: varchar("responsavel", { length: 255 }), // nome do responsável por criar as medições
   frequencia: mysqlEnum("frequencia", ["mensal", "trimestral", "semestral", "anual"]).default("mensal").notNull(),
   status: mysqlEnum("status", ["ativo", "concluido", "cancelado"]).default("ativo").notNull(),
   observacoes: text("observacoes"),

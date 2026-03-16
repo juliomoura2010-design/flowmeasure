@@ -36,7 +36,7 @@
 
 ## Integração e Testes
 - [x] Rotas configuradas no App.tsx
-- [x] Testes vitest para routers (13 testes passando)
+- [x] Testes vitest para routers (21 testes passando)
 - [x] Checkpoint final
 
 ## Revisão Completa - Replicar PayFlow Original
@@ -67,3 +67,10 @@
 - [x] Tela de Relatórios: substituir erro por página "Em Construção"
 - [x] Bug: campo Elemento PEP com maxLength incorreto, não aceita CBF.26.015 (9 caracteres)
 - [x] Bug persistente: máscara PEP ainda trunca antes de CBF.26.015 - reescrever lógica completamente
+
+## Novas Funcionalidades
+- [x] Automação: alterar status do pedido para "Concluído" quando consumido atingir 100%
+- [x] Campo "Responsável" no cadastro de pedidos (nome da pessoa responsável por criar as medições)
+- [x] Visão gerencial no Dashboard: tabela mostrando responsáveis que ainda não criaram medições do mês
+- [x] Visão Geral: filtro por responsável nas tabelas de medições a criar e pedidos em andamento
+- [x] Visão Geral: totalizadores por responsável (total de pedidos, valor total, medições pendentes)

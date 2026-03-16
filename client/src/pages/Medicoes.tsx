@@ -89,6 +89,7 @@ export default function Medicoes() {
       utils.medicoes.listComDados.invalidate();
       utils.medicoes.controleMes.invalidate();
       utils.dashboard.getData.invalidate();
+      utils.pedidos.listComStats.invalidate(); // atualiza status do pedido após automação
       toast.success("Medição excluída com sucesso");
     },
     onError: () => toast.error("Erro ao excluir medição"),

@@ -1,0 +1,1 @@
+ALTER TABLE `pedidos` ADD `responsavel` varchar(255);

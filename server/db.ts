@@ -214,19 +214,99 @@ export async function getMedicaoById(id: number) {
 export async function createMedicao(data: InsertMedicao) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  return db.insert(medicoes).values(data);
+  const result = await db.insert(medicoes).values(data);
+  // Após criar medição, verificar se o pedido deve ser concluído automaticamente
+  await verificarConclusaoPedido(data.pedidoId);
+  return result;
 }
 
 export async function updateMedicao(id: number, data: Partial<InsertMedicao>) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  return db.update(medicoes).set(data).where(eq(medicoes.id, id));
+  const result = await db.update(medicoes).set(data).where(eq(medicoes.id, id));
+  // Após atualizar medição (ex: pagamento), verificar se o pedido deve ser concluído
+  const medicao = await db.select().from(medicoes).where(eq(medicoes.id, id)).limit(1);
+  if (medicao[0]?.pedidoId) {
+    await verificarConclusaoPedido(medicao[0].pedidoId);
+  }
+  return result;
+}
+
+/**
+ * Verifica se o pedido atingiu 100% do valor consumido e atualiza o status para "concluido".
+ * Um pedido é considerado concluído quando a soma de todas as medições não canceladas
+ * é igual ou maior que o valor total do pedido.
+ */
+export async function verificarConclusaoPedido(pedidoId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    const pedidoResult = await db.select().from(pedidos).where(eq(pedidos.id, pedidoId)).limit(1);
+    const pedido = pedidoResult[0];
+    if (!pedido || pedido.status !== "ativo") return; // só verifica pedidos ativos
+
+    const medicoesDoPedido = await db.select().from(medicoes)
+      .where(and(eq(medicoes.pedidoId, pedidoId), ne(medicoes.status, "cancelada")));
+
+    const valorTotal = parseFloat(pedido.valor || "0");
+    const valorConsumido = medicoesDoPedido.reduce((sum, m) => sum + parseFloat(m.valor || "0"), 0);
+
+    if (valorTotal > 0 && valorConsumido >= valorTotal) {
+      await db.update(pedidos)
+        .set({ status: "concluido" })
+        .where(eq(pedidos.id, pedidoId));
+      console.log(`[Automação] Pedido #${pedido.numero} concluído automaticamente (consumido: R$${valorConsumido.toFixed(2)} / total: R$${valorTotal.toFixed(2)})`);
+    }
+  } catch (error) {
+    console.error("[Automação] Erro ao verificar conclusão do pedido:", error);
+  }
 }
 
 export async function deleteMedicao(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  return db.delete(medicoes).where(eq(medicoes.id, id));
+  // Guardar pedidoId antes de deletar para verificar reversão de status
+  const medicao = await db.select().from(medicoes).where(eq(medicoes.id, id)).limit(1);
+  const pedidoId = medicao[0]?.pedidoId;
+  const result = await db.delete(medicoes).where(eq(medicoes.id, id));
+  // Após deletar medição, verificar se o pedido deve ser reativado ou concluído
+  if (pedidoId) {
+    await verificarStatusPedidoAposDelecao(pedidoId);
+  }
+  return result;
+}
+
+/**
+ * Após deletar uma medição, verifica se o pedido concluído deve voltar para ativo
+ * (caso o consumo caia abaixo de 100%).
+ */
+export async function verificarStatusPedidoAposDelecao(pedidoId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    const pedidoResult = await db.select().from(pedidos).where(eq(pedidos.id, pedidoId)).limit(1);
+    const pedido = pedidoResult[0];
+    if (!pedido) return;
+
+    const medicoesDoPedido = await db.select().from(medicoes)
+      .where(and(eq(medicoes.pedidoId, pedidoId), ne(medicoes.status, "cancelada")));
+
+    const valorTotal = parseFloat(pedido.valor || "0");
+    const valorConsumido = medicoesDoPedido.reduce((sum, m) => sum + parseFloat(m.valor || "0"), 0);
+
+    if (pedido.status === "concluido" && valorConsumido < valorTotal) {
+      // Reativar pedido pois o consumo caiu abaixo de 100%
+      await db.update(pedidos)
+        .set({ status: "ativo" })
+        .where(eq(pedidos.id, pedidoId));
+      console.log(`[Automação] Pedido #${pedido.numero} reativado após deleção de medição (consumido: R$${valorConsumido.toFixed(2)} / total: R$${valorTotal.toFixed(2)})`);
+    } else if (pedido.status === "ativo" && valorTotal > 0 && valorConsumido >= valorTotal) {
+      // Concluir pedido (caso raro, mas garante consistência)
+      await verificarConclusaoPedido(pedidoId);
+    }
+  } catch (error) {
+    console.error("[Automação] Erro ao verificar status após deleção:", error);
+  }
 }
 
 // Medições com dados enriquecidos (pedido, fornecedor)
@@ -371,6 +451,78 @@ export async function getDashboardData() {
     medicoesAtraso: medicoesAtrasoComDados,
     pedidosEmAndamento,
   };
+}
+
+// ===== DASHBOARD GERENCIAL (visão por responsável) =====
+export async function getDashboardGerencial(mes: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const allPedidos = await db.select().from(pedidos);
+  const allMedicoes = await db.select().from(medicoes);
+  const allFornecedores = await db.select().from(fornecedores);
+
+  // Pedidos ativos que já iniciaram no mês selecionado
+  const pedidosAtivos = allPedidos.filter(p => {
+    if (p.status !== "ativo") return false;
+    if (p.dataInicio) {
+      const inicioMes = new Date(p.dataInicio).toISOString().substring(0, 7);
+      if (inicioMes > mes) return false;
+    }
+    return true;
+  });
+
+  const medicoesMes = allMedicoes.filter(m => m.mes === mes);
+
+  // Agrupar por responsável
+  const mapaResponsaveis = new Map<string, {
+    responsavel: string;
+    totalPedidos: number;
+    valorTotal: number;
+    medicoesCriadas: number;
+    medicoesPendentes: number;
+    pedidosPendentes: Array<{ pedidoId: number; pedidoNumero: string; fornecedorNome: string; valorPrevisto: string }>;
+  }>();
+
+  for (const p of pedidosAtivos) {
+    const responsavel = p.responsavel || "Sem responsável";
+    const fornecedor = allFornecedores.find(f => f.id === p.fornecedorId);
+    const temMedicaoMes = medicoesMes.some(m => m.pedidoId === p.id);
+    const valorTotal = parseFloat(p.valor || "0");
+    const totalMed = p.totalMedicoes || 12;
+    const valorPorMedicao = totalMed > 0 ? valorTotal / totalMed : valorTotal;
+
+    if (!mapaResponsaveis.has(responsavel)) {
+      mapaResponsaveis.set(responsavel, {
+        responsavel,
+        totalPedidos: 0,
+        valorTotal: 0,
+        medicoesCriadas: 0,
+        medicoesPendentes: 0,
+        pedidosPendentes: [],
+      });
+    }
+
+    const entry = mapaResponsaveis.get(responsavel)!;
+    entry.totalPedidos += 1;
+    entry.valorTotal += valorTotal;
+
+    if (temMedicaoMes) {
+      entry.medicoesCriadas += 1;
+    } else {
+      entry.medicoesPendentes += 1;
+      entry.pedidosPendentes.push({
+        pedidoId: p.id,
+        pedidoNumero: p.numero,
+        fornecedorNome: fornecedor?.nome || "—",
+        valorPrevisto: valorPorMedicao.toFixed(2),
+      });
+    }
+  }
+
+  return Array.from(mapaResponsaveis.values()).sort((a, b) =>
+    b.medicoesPendentes - a.medicoesPendentes
+  );
 }
 
 // ===== RELATORIOS =====

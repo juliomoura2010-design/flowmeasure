@@ -9,7 +9,7 @@ import {
   getPedidos, getPedidoById, createPedido, updatePedido, deletePedido, getPedidosComStats,
   getMedicoes, getMedicaoById, createMedicao, updateMedicao, deleteMedicao,
   getMedicoesComDados, getControleMedicoesMes,
-  getDashboardData, getRelatoriosData,
+  getDashboardData, getDashboardGerencial, getRelatoriosData,
 } from "./db";
 
 const fornecedorSchema = z.object({
@@ -37,6 +37,7 @@ const pedidoSchema = z.object({
   totalMedicoes: z.number().int().min(1).default(12),
   elementoPep: z.string().optional().nullable(), // obrigatório quando tipoGasto = capex (validado no frontend)
   tipoGasto: z.enum(["capex", "opex"]).default("opex"),
+  responsavel: z.string().optional().nullable(),
   frequencia: z.enum(["mensal", "trimestral", "semestral", "anual"]).default("mensal"),
   status: z.enum(["ativo", "concluido", "cancelado"]).default("ativo"),
   observacoes: z.string().optional().nullable(),
@@ -191,6 +192,9 @@ export const appRouter = router({
 
   dashboard: router({
     getData: protectedProcedure.query(() => getDashboardData()),
+    getGerencial: protectedProcedure
+      .input(z.object({ mes: z.string().regex(/^\d{4}-\d{2}$/) }))
+      .query(({ input }) => getDashboardGerencial(input.mes)),
   }),
 
   relatorios: router({

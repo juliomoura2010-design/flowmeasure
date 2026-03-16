@@ -33,6 +33,7 @@ const defaultForm = {
   totalMedicoes: "12",
   elementoPep: "",
   tipoGasto: "opex",
+  responsavel: "",
   frequencia: "mensal",
   status: "ativo",
   observacoes: "",
@@ -63,6 +64,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
         totalMedicoes: String(pedidoData.totalMedicoes ?? 12),
         elementoPep: (pedidoData as any).elementoPep ?? "",
         tipoGasto: pedidoData.tipoGasto,
+        responsavel: (pedidoData as any).responsavel ?? "",
         frequencia: pedidoData.frequencia,
         status: pedidoData.status,
         observacoes: pedidoData.observacoes ?? "",
@@ -77,6 +79,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
       toast.success("Pedido criado com sucesso");
       utils.pedidos.listComStats.invalidate();
       utils.dashboard.getData.invalidate();
+      utils.dashboard.getGerencial.invalidate();
       onClose();
     },
     onError: (e) => toast.error("Erro ao criar pedido: " + e.message),
@@ -87,6 +90,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
       toast.success("Pedido atualizado com sucesso");
       utils.pedidos.listComStats.invalidate();
       utils.dashboard.getData.invalidate();
+      utils.dashboard.getGerencial.invalidate();
       onClose();
     },
     onError: (e) => toast.error("Erro ao atualizar pedido: " + e.message),
@@ -120,6 +124,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
       totalMedicoes: parseInt(form.totalMedicoes) || 12,
       elementoPep: form.elementoPep.trim() || null,
       tipoGasto: form.tipoGasto as "capex" | "opex",
+      responsavel: form.responsavel.trim() || null,
       frequencia: form.frequencia as "mensal" | "trimestral" | "semestral" | "anual",
       status: form.status as "ativo" | "concluido" | "cancelado",
       observacoes: form.observacoes || null,
@@ -139,16 +144,14 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
   const PEP_REGEX = /^[A-Za-z]{3}\.[0-9]{2}\.[0-9]{3}$/;
   const pepValido = !form.elementoPep.trim() || PEP_REGEX.test(form.elementoPep.trim());
 
-  // Máscara: remove tudo que não é alfanumérico, limita a 8 chars limpos (3+2+3),
+  // Máscara PEP: remove tudo que não é alfanumérico, limita a 8 chars limpos (3+2+3),
   // depois insere pontos nas posições 3 e 5 do resultado final
   const handlePepChange = (raw: string) => {
-    // Pega apenas letras e números, converte para maiúsculas, limita a 8 chars
     const cleaned = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-    const limited = cleaned.slice(0, 8); // máx 8 chars sem pontos (3+2+3)
-    // Monta com pontos: pos 3 e 5 do cleaned viram separadores
-    const p1 = limited.slice(0, 3);       // CBF
-    const p2 = limited.slice(3, 5);       // 26
-    const p3 = limited.slice(5, 8);       // 015
+    const limited = cleaned.slice(0, 8);
+    const p1 = limited.slice(0, 3);
+    const p2 = limited.slice(3, 5);
+    const p3 = limited.slice(5, 8);
     let result = p1;
     if (p2) result += "." + p2;
     if (p3) result += "." + p3;
@@ -189,6 +192,14 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
               <Input type="number" step="0.01" min="0" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} placeholder="0,00" required />
             </div>
             <div className="space-y-1.5">
+              <Label>Responsável pelas Medições</Label>
+              <Input
+                value={form.responsavel}
+                onChange={e => setForm(p => ({ ...p, responsavel: e.target.value }))}
+                placeholder="Nome do responsável"
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label>Tipo de Gasto</Label>
               <Select value={form.tipoGasto} onValueChange={v => setForm(p => ({ ...p, tipoGasto: v, elementoPep: v === "opex" ? "" : p.elementoPep }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -200,7 +211,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
             </div>
 
             {/* Campo PEP — aparece e é obrigatório apenas quando Capex */}
-            <div className={`sm:col-span-2 space-y-1.5 transition-all ${isCapex ? "opacity-100" : "opacity-0 pointer-events-none h-0 overflow-hidden"}`}>
+            <div className={`space-y-1.5 transition-all ${isCapex ? "opacity-100" : "opacity-0 pointer-events-none h-0 overflow-hidden"}`}>
               <Label>
                 Elemento PEP {isCapex && <span className="text-destructive">*</span>}
               </Label>
