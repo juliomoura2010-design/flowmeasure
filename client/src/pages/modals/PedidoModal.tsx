@@ -135,21 +135,24 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const isCapex = form.tipoGasto === "capex";
 
-  // Formato PEP: CBF.26.001 (3 letras + ponto + 2 dígitos + ponto + 3 dígitos)
+  // Formato PEP: CBF.26.001 (3 letras + ponto + 2 dígitos + ponto + 3 dígitos = 9 chars)
   const PEP_REGEX = /^[A-Za-z]{3}\.[0-9]{2}\.[0-9]{3}$/;
   const pepValido = !form.elementoPep.trim() || PEP_REGEX.test(form.elementoPep.trim());
 
-  // Máscara automática ao digitar
-  // Formato final: CBF.26.015 = 3 letras + '.' + 2 dígitos + '.' + 3 dígitos = 9 chars
-  // cleaned pode ter no máximo 8 chars (3+2+3 sem pontos)
+  // Máscara: remove tudo que não é alfanumérico, limita a 8 chars limpos (3+2+3),
+  // depois insere pontos nas posições 3 e 5 do resultado final
   const handlePepChange = (raw: string) => {
-    const cleaned = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 8);
-    let masked = "";
-    for (let i = 0; i < cleaned.length; i++) {
-      if (i === 3 || i === 5) masked += ".";
-      masked += cleaned[i];
-    }
-    setForm(p => ({ ...p, elementoPep: masked }));
+    // Pega apenas letras e números, converte para maiúsculas, limita a 8 chars
+    const cleaned = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    const limited = cleaned.slice(0, 8); // máx 8 chars sem pontos (3+2+3)
+    // Monta com pontos: pos 3 e 5 do cleaned viram separadores
+    const p1 = limited.slice(0, 3);       // CBF
+    const p2 = limited.slice(3, 5);       // 26
+    const p3 = limited.slice(5, 8);       // 015
+    let result = p1;
+    if (p2) result += "." + p2;
+    if (p3) result += "." + p3;
+    setForm(p => ({ ...p, elementoPep: result }));
   };
 
   return (
@@ -205,7 +208,6 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
                 value={form.elementoPep}
                 onChange={e => handlePepChange(e.target.value)}
                 placeholder="Ex: CBF.26.001"
-                maxLength={9}
                 className={
                   isCapex && !form.elementoPep.trim()
                     ? "border-orange-300 focus-visible:ring-orange-400"
