@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Filter } from "lucide-react";
 import { toast } from "sonner";
 import MedicaoModal from "./modals/MedicaoModal";
 import PagarMedicaoModal from "./modals/PagarMedicaoModal";
@@ -58,6 +58,24 @@ function TipoBadge({ tipo }: { tipo: string }) {
   );
 }
 
+function AvatarInitial({ nome }: { nome: string }) {
+  const initial = nome.charAt(0).toUpperCase();
+  const colors = [
+    "bg-violet-100 text-violet-700",
+    "bg-blue-100 text-blue-700",
+    "bg-emerald-100 text-emerald-700",
+    "bg-orange-100 text-orange-700",
+    "bg-pink-100 text-pink-700",
+    "bg-teal-100 text-teal-700",
+  ];
+  const idx = nome.charCodeAt(0) % colors.length;
+  return (
+    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${colors[idx]}`}>
+      {initial}
+    </span>
+  );
+}
+
 export default function Medicoes() {
   const mesAtual = getMesAtual();
   const mesAnterior = getMesAnterior();
@@ -65,6 +83,7 @@ export default function Medicoes() {
   const [selectedPeriod, setSelectedPeriod] = useState<"atual" | "anterior" | "custom">("atual");
   const [customMes, setCustomMes] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [filtroResponsavel, setFiltroResponsavel] = useState<string>("todos");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [pagarId, setPagarId] = useState<number | null>(null);
@@ -77,34 +96,56 @@ export default function Medicoes() {
 
   const utils = trpc.useUtils();
 
-  const { data: controle = [] } = trpc.medicoes.controleMes.useQuery(
+  const { data: controleRaw = [] } = trpc.medicoes.controleMes.useQuery(
     { mes: mesSelecionado },
     { enabled: !!mesSelecionado }
   );
 
-  const { data: todasMedicoes = [], isLoading: loadingMedicoes } = trpc.medicoes.listComDados.useQuery({});
+  const { data: todasMedicoesRaw = [], isLoading: loadingMedicoes } = trpc.medicoes.listComDados.useQuery({});
+
+  const controle = controleRaw as any[];
+  const todasMedicoes = todasMedicoesRaw as any[];
 
   const deleteMutation = trpc.medicoes.delete.useMutation({
     onSuccess: () => {
       utils.medicoes.listComDados.invalidate();
       utils.medicoes.controleMes.invalidate();
       utils.dashboard.getData.invalidate();
-      utils.pedidos.listComStats.invalidate(); // atualiza status do pedido após automação
+      utils.pedidos.listComStats.invalidate();
       toast.success("Medição excluída com sucesso");
     },
     onError: () => toast.error("Erro ao excluir medição"),
   });
 
-  const esperadas = (controle as any[]).length;
-  const criadas = (controle as any[]).filter((c: any) => c.criada).length;
+  // ── Lista de responsáveis únicos (união das duas fontes) ──────────────────
+  const responsaveisUnicos = useMemo(() => {
+    const set = new Set<string>();
+    controle.forEach((c: any) => { if (c.responsavel) set.add(c.responsavel); });
+    todasMedicoes.forEach((m: any) => { if (m.responsavel) set.add(m.responsavel); });
+    return Array.from(set).sort();
+  }, [controle, todasMedicoes]);
+
+  // ── Controle mensal filtrado ──────────────────────────────────────────────
+  const controleFiltrado = useMemo(() => {
+    if (filtroResponsavel === "todos") return controle;
+    return controle.filter((c: any) => (c.responsavel || "Sem responsável") === filtroResponsavel);
+  }, [controle, filtroResponsavel]);
+
+  // KPIs calculados sobre o controle filtrado
+  const esperadas = controleFiltrado.length;
+  const criadas = controleFiltrado.filter((c: any) => c.criada).length;
   const faltam = esperadas - criadas;
   const progresso = esperadas > 0 ? Math.round((criadas / esperadas) * 100) : 100;
 
+  // ── Listagem geral filtrada ───────────────────────────────────────────────
   const medicoesFiltradas = useMemo(() => {
-    const list = todasMedicoes as any[];
-    if (filterStatus === "todos") return list;
-    return list.filter(m => m.status === filterStatus);
-  }, [todasMedicoes, filterStatus]);
+    let list = todasMedicoes;
+    if (filterStatus !== "todos") list = list.filter((m: any) => m.status === filterStatus);
+    if (filtroResponsavel !== "todos") list = list.filter((m: any) => (m.responsavel || "Sem responsável") === filtroResponsavel);
+    return list;
+  }, [todasMedicoes, filterStatus, filtroResponsavel]);
+
+  const filtrado = filtroResponsavel !== "todos";
 
   const handleEdit = (id: number) => {
     setEditingId(id);
@@ -143,22 +184,46 @@ export default function Medicoes() {
 
   return (
     <DashboardLayout>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-heading font-bold text-gray-900">Medições</h1>
-        <button
-          onClick={() => { setEditingId(null); setModalOpen(true); }}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Nova Medição
-        </button>
+      {/* Cabeçalho */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-heading font-bold text-gray-900">Medições</h1>
+          {filtrado && (
+            <span className="inline-flex items-center gap-1.5 bg-violet-100 text-violet-700 text-xs font-semibold px-3 py-1 rounded-full">
+              <Filter className="h-3 w-3" />
+              {filtroResponsavel}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Filtro por responsável */}
+          <select
+            value={filtroResponsavel}
+            onChange={e => setFiltroResponsavel(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            <option value="todos">Todos os responsáveis</option>
+            {responsaveisUnicos.map(r => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => { setEditingId(null); setModalOpen(true); }}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Nova Medição
+          </button>
+        </div>
       </div>
 
-      {/* KPIs do mês */}
+      {/* KPIs do mês — calculados sobre o filtro */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <div className="bg-white rounded-xl border border-gray-100 p-5">
           <div className="text-xs text-gray-400 uppercase font-medium mb-2">Esperadas no Mês</div>
           <div className="text-3xl font-bold text-gray-900">{esperadas}</div>
-          <div className="text-xs text-gray-500 mt-1">pedidos ativos em {getMesLabel(mesSelecionado || mesAtual)}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {filtrado ? `pedidos de ${filtroResponsavel}` : `pedidos ativos em ${getMesLabel(mesSelecionado || mesAtual)}`}
+          </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-5">
           <div className="text-xs text-gray-400 uppercase font-medium mb-2">Criadas</div>
@@ -202,6 +267,7 @@ export default function Medicoes() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-heading font-semibold text-gray-900">
               Controle de Medições — {getMesLabel(mesSelecionado)}
+              {filtrado && <span className="text-xs text-violet-600 font-normal ml-2">· {filtroResponsavel}</span>}
             </h2>
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-500">{progresso}% concluído</span>
@@ -214,15 +280,18 @@ export default function Medicoes() {
             </div>
           </div>
 
-          {(controle as any[]).length === 0 ? (
+          {controleFiltrado.length === 0 ? (
             <div className="py-6 text-center text-gray-400 text-sm">
-              Nenhum pedido ativo encontrado para este mês
+              {filtrado
+                ? `Nenhum pedido ativo para ${filtroResponsavel} neste mês`
+                : "Nenhum pedido ativo encontrado para este mês"}
             </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
                   <th className="text-left pb-2 font-medium">Pedido / Fornecedor</th>
+                  {!filtrado && <th className="text-left pb-2 font-medium">Responsável</th>}
                   <th className="text-left pb-2 font-medium">Valor Previsto</th>
                   <th className="text-left pb-2 font-medium">Tipo</th>
                   <th className="text-left pb-2 font-medium">Ref.</th>
@@ -231,12 +300,24 @@ export default function Medicoes() {
                 </tr>
               </thead>
               <tbody>
-                {(controle as any[]).map((item: any) => (
+                {controleFiltrado.map((item: any) => (
                   <tr key={item.pedidoId} className="border-b border-gray-50 last:border-0">
                     <td className="py-3">
                       <div className="font-medium text-gray-900">{item.pedidoNumero}</div>
                       <div className="text-xs text-gray-400">{item.fornecedorNome}</div>
                     </td>
+                    {!filtrado && (
+                      <td className="py-3">
+                        {item.responsavel ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                            <AvatarInitial nome={item.responsavel} />
+                            <span className="truncate max-w-24">{item.responsavel}</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="py-3 text-gray-700">{formatCurrency(item.valorPrevisto)}</td>
                     <td className="py-3"><TipoBadge tipo={item.tipo} /></td>
                     <td className="py-3 text-gray-500 text-xs">
@@ -276,8 +357,11 @@ export default function Medicoes() {
 
       {/* Todas as Medições Registradas */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-heading font-semibold text-gray-900">Todas as Medições Registradas</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
+          <h2 className="font-heading font-semibold text-gray-900">
+            Todas as Medições Registradas
+            {filtrado && <span className="text-xs text-violet-600 font-normal ml-2">· {filtroResponsavel}</span>}
+          </h2>
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
@@ -296,7 +380,9 @@ export default function Medicoes() {
           </div>
         ) : medicoesFiltradas.length === 0 ? (
           <div className="py-12 text-center text-gray-400 text-sm">
-            Nenhuma medição encontrada
+            {filtrado
+              ? `Nenhuma medição encontrada para ${filtroResponsavel}`
+              : "Nenhuma medição encontrada"}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -306,6 +392,7 @@ export default function Medicoes() {
                   <th className="text-left px-5 py-3 font-medium">Nº Documento</th>
                   <th className="text-left px-4 py-3 font-medium">Pedido</th>
                   <th className="text-left px-4 py-3 font-medium">Fornecedor</th>
+                  {!filtrado && <th className="text-left px-4 py-3 font-medium">Responsável</th>}
                   <th className="text-left px-4 py-3 font-medium">Período Ref.</th>
                   <th className="text-left px-4 py-3 font-medium">Vencimento</th>
                   <th className="text-left px-4 py-3 font-medium">Valor</th>
@@ -319,6 +406,18 @@ export default function Medicoes() {
                     <td className="px-5 py-3 font-mono text-xs font-medium text-gray-900">{m.numero}</td>
                     <td className="px-4 py-3 text-gray-700">{m.pedidoNumero}</td>
                     <td className="px-4 py-3 text-gray-600">{m.fornecedorNome}</td>
+                    {!filtrado && (
+                      <td className="px-4 py-3">
+                        {m.responsavel ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                            <AvatarInitial nome={m.responsavel} />
+                            <span className="truncate max-w-24">{m.responsavel}</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-gray-600 text-xs">{getMesLabel(m.mes)}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{formatDate(m.dataVencimento)}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(m.valor)}</td>
