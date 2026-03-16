@@ -60,3 +60,4 @@
 - [x] Tela de Pedidos: adicionar coluna "Consumido" (soma das medições pagas do pedido)
 - [x] Visão Geral: mostrar valor consumido na tabela "Pedidos em Andamento"
 - [x] Modal de criação de medição: ao selecionar pedido, exibir fornecedor e valor previsto da medição como prévia
+- [x] Bug: Medições pendentes aparecem para pedidos cujo dataInicio é posterior ao mês selecionado (ex: pedido iniciado em março aparece como pendente em fevereiro)

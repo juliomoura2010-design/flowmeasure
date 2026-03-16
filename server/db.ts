@@ -266,7 +266,15 @@ export async function getControleMedicoesMes(mes: string) {
   const medicoesMes = await db.select().from(medicoes).where(eq(medicoes.mes, mes));
   const todasMedicoes = await db.select().from(medicoes);
 
-  return pedidosAtivos.map(p => {
+  // Filtrar apenas pedidos que já iniciaram no mês selecionado
+  // mes formato: YYYY-MM, dataInicio formato: Date (YYYY-MM-DD)
+  const pedidosDoMes = pedidosAtivos.filter(p => {
+    if (!p.dataInicio) return true; // sem data de início, sempre inclui
+    const inicioMes = p.dataInicio.toISOString().substring(0, 7); // YYYY-MM
+    return inicioMes <= mes; // pedido iniciou antes ou no mês selecionado
+  });
+
+  return pedidosDoMes.map(p => {
     const fornecedor = allFornecedores.find(f => f.id === p.fornecedorId);
     const medicaoMes = medicoesMes.find(m => m.pedidoId === p.id);
     const medicoesDoPedido = todasMedicoes.filter(m => m.pedidoId === p.id);
@@ -307,10 +315,16 @@ export async function getDashboardData() {
   const totalMedicoesPagas = medicoesPagas.reduce((sum, m) => sum + parseFloat(m.valor || "0"), 0);
 
   // Medições a criar no mês atual (pedidos ativos sem medição no mês)
+  // Apenas pedidos que já iniciaram no mês atual
   const medicoesMesAtual = allMedicoes.filter(m => m.mes === mesAtual);
-  const pedidosSemMedicaoMes = pedidosAtivos.filter(p =>
-    !medicoesMesAtual.find(m => m.pedidoId === p.id)
-  );
+  const pedidosSemMedicaoMes = pedidosAtivos.filter(p => {
+    // Verificar se o pedido já iniciou no mês atual
+    if (p.dataInicio) {
+      const inicioMes = new Date(p.dataInicio).toISOString().substring(0, 7); // YYYY-MM
+      if (inicioMes > mesAtual) return false; // pedido ainda não iniciou
+    }
+    return !medicoesMesAtual.find(m => m.pedidoId === p.id);
+  });
 
   // Medições em atraso (pendentes com vencimento passado)
   const medicoesEmAtraso = allMedicoes.filter(m => {
