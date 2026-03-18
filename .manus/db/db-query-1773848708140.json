@@ -1,0 +1,9 @@
+{
+  "query": "\nSELECT \n  m.id,\n  m.numero,\n  m.mes,\n  m.valor,\n  m.status,\n  m.dataVencimento,\n  m.dataPagamento,\n  p.numero AS pedidoNumero,\n  p.status AS pedidoStatus\nFROM medicoes m\nJOIN pedidos p ON m.pedidoId = p.id\nWHERE m.status = 'pendente'\nORDER BY m.mes;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2tvfinjT3YWRDo7.7408439a30da --database iVtsSpUMzjEnbdHEMx4nHU --execute \nSELECT \n  m.id,\n  m.numero,\n  m.mes,\n  m.valor,\n  m.status,\n  m.dataVencimento,\n  m.dataPagamento,\n  p.numero AS pedidoNumero,\n  p.status AS pedidoStatus\nFROM medicoes m\nJOIN pedidos p ON m.pedidoId = p.id\nWHERE m.status = 'pendente'\nORDER BY m.mes;\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 60
+}

@@ -81,3 +81,4 @@
 - [ ] Tela de login com e-mail/senha — ADIADO para próxima fase
 - [ ] Página de Gestão de Usuários (admin): cadastrar, editar, remover acessos e definir papel (admin/usuário) — ADIADO para próxima fase
 - [ ] Proteção de rotas: redirecionar para login se não autenticado — ADIADO para próxima fase
+- [x] BUG/MELHORIA: Regra de "Em Atraso" — mostrar pedidos sem medição criada em meses anteriores + pedidos do mês atual sem medição após dia 10

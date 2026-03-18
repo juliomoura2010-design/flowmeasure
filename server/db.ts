@@ -408,13 +408,89 @@ export async function getDashboardData() {
     return !medicoesMesAtual.find(m => m.pedidoId === p.id);
   });
 
-  // Medições em atraso (pendentes com vencimento passado)
-  const medicoesEmAtraso = allMedicoes.filter(m => {
-    if (m.status !== "pendente") return false;
-    if (!m.dataVencimento) return false;
-    return new Date(m.dataVencimento) < hoje;
-  });
-  const valorEmAtraso = medicoesEmAtraso.reduce((sum, m) => sum + parseFloat(m.valor || "0"), 0);
+  // Nova regra de atraso:
+  // 1. Pedidos ativos que não têm medição criada em meses ANTERIORES ao mês atual
+  // 2. Pedidos ativos sem medição criada no mês atual E hoje já passou do dia 10
+  const diaHoje = hoje.getDate();
+  const pedidosEmAtraso: Array<{
+    pedidoId: number;
+    pedidoNumero: string;
+    fornecedorNome: string;
+    mes: string; // mês em atraso
+    valorPrevisto: string;
+    responsavel: string | null;
+    tipoAtraso: "mes_anterior" | "mes_atual_apos_dia10";
+  }> = [];
+
+  for (const p of pedidosAtivos) {
+    // Determinar mês de início do pedido
+    const inicioMes = p.dataInicio
+      ? new Date(p.dataInicio).toISOString().substring(0, 7)
+      : null;
+
+    const fornecedor = allFornecedores.find(f => f.id === p.fornecedorId);
+    const totalMed = p.totalMedicoes || 12;
+    const valorTotal = parseFloat(p.valor || "0");
+    const valorPorMedicao = totalMed > 0 ? valorTotal / totalMed : valorTotal;
+    const medicoesDoPedido = allMedicoes.filter(m => m.pedidoId === p.id);
+    const mesesComMedicao = new Set(medicoesDoPedido.map(m => m.mes));
+
+    // Calcular meses desde o início até o mês anterior ao atual
+    const anoAtual = hoje.getFullYear();
+    const mesNumAtual = hoje.getMonth(); // 0-indexed
+
+    // Definir mês de início da verificação
+    let anoVerif: number;
+    let mesVerif: number; // 0-indexed
+    if (inicioMes) {
+      const [anoI, mesI] = inicioMes.split("-").map(Number);
+      anoVerif = anoI;
+      mesVerif = mesI - 1; // converter para 0-indexed
+    } else {
+      // Sem data de início: verificar apenas os últimos 12 meses
+      const limite = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1);
+      anoVerif = limite.getFullYear();
+      mesVerif = limite.getMonth();
+    }
+
+    // Verificar meses anteriores ao atual
+    let a = anoVerif;
+    let m = mesVerif;
+    while (a < anoAtual || (a === anoAtual && m < mesNumAtual)) {
+      const mesStr = `${a}-${String(m + 1).padStart(2, "0")}`;
+      if (!mesesComMedicao.has(mesStr)) {
+        pedidosEmAtraso.push({
+          pedidoId: p.id,
+          pedidoNumero: p.numero,
+          fornecedorNome: fornecedor?.nome || "—",
+          mes: mesStr,
+          valorPrevisto: valorPorMedicao.toFixed(2),
+          responsavel: p.responsavel || null,
+          tipoAtraso: "mes_anterior",
+        });
+      }
+      m++;
+      if (m > 11) { m = 0; a++; }
+    }
+
+    // Verificar mês atual: em atraso se hoje > dia 10 e não tem medição
+    if (diaHoje > 10 && !mesesComMedicao.has(mesAtual)) {
+      // Verificar se o pedido já iniciou no mês atual
+      if (!inicioMes || inicioMes <= mesAtual) {
+        pedidosEmAtraso.push({
+          pedidoId: p.id,
+          pedidoNumero: p.numero,
+          fornecedorNome: fornecedor?.nome || "—",
+          mes: mesAtual,
+          valorPrevisto: valorPorMedicao.toFixed(2),
+          responsavel: p.responsavel || null,
+          tipoAtraso: "mes_atual_apos_dia10",
+        });
+      }
+    }
+  }
+
+  const valorEmAtraso = pedidosEmAtraso.reduce((sum, item) => sum + parseFloat(item.valorPrevisto || "0"), 0);
 
   // Pedidos em andamento com stats
   const pedidosComStats = await getPedidosComStats();
@@ -436,15 +512,7 @@ export async function getDashboardData() {
     };
   });
 
-  // Medições em atraso com dados
-  const medicoesAtrasoComDados = medicoesEmAtraso.map(m => {
-    const pedido = allPedidos.find(p => p.id === m.pedidoId);
-    return {
-      ...m,
-      pedidoNumero: pedido?.numero || "—",
-      responsavel: pedido?.responsavel || null,
-    };
-  });
+  // pedidosEmAtraso já contém todos os dados necessários (substituí medicoesAtrasoComDados)
 
   // KPIs por responsável (para filtrar os cards quando filtro ativo)
   const pedidosAtivosPorResponsavel = pedidosAtivos.reduce((acc, p) => {
@@ -460,10 +528,9 @@ export async function getDashboardData() {
     return acc;
   }, {} as Record<string, number>);
 
-  const valorEmAtrasoPorResponsavel = medicoesEmAtraso.reduce((acc, m) => {
-    const pedido = allPedidos.find(p => p.id === m.pedidoId);
-    const r = pedido?.responsavel || "Sem responsável";
-    acc[r] = (acc[r] || 0) + parseFloat(m.valor || "0");
+  const valorEmAtrasoPorResponsavel = pedidosEmAtraso.reduce((acc: Record<string, number>, item) => {
+    const r = item.responsavel || "Sem responsável";
+    acc[r] = (acc[r] || 0) + parseFloat(item.valorPrevisto || "0");
     return acc;
   }, {} as Record<string, number>);
 
@@ -473,7 +540,7 @@ export async function getDashboardData() {
     medicoesCriarMes: medicoesCriarMes.length,
     valorEmAtraso,
     medicoesCriarMesLista: medicoesCriarMes,
-    medicoesAtraso: medicoesAtrasoComDados,
+    medicoesAtraso: pedidosEmAtraso,
     pedidosEmAndamento,
     // dados por responsável para filtro nos KPIs
     pedidosAtivosPorResponsavel,

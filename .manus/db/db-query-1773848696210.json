@@ -1,0 +1,23 @@
+{
+  "query": "\nSELECT \n  m.id,\n  m.numero,\n  m.mes,\n  m.valor,\n  m.status,\n  m.dataVencimento,\n  m.dataPagamento,\n  m.dataEmissao,\n  m.observacoes,\n  p.numero AS pedidoNumero,\n  p.status AS pedidoStatus\nFROM medicoes m\nJOIN pedidos p ON m.pedidoId = p.id\nWHERE p.numero = '4500809118'\nORDER BY m.mes DESC;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2tvfinjT3YWRDo7.7408439a30da --database iVtsSpUMzjEnbdHEMx4nHU --execute \nSELECT \n  m.id,\n  m.numero,\n  m.mes,\n  m.valor,\n  m.status,\n  m.dataVencimento,\n  m.dataPagamento,\n  m.dataEmissao,\n  m.observacoes,\n  p.numero AS pedidoNumero,\n  p.status AS pedidoStatus\nFROM medicoes m\nJOIN pedidos p ON m.pedidoId = p.id\nWHERE p.numero = '4500809118'\nORDER BY m.mes DESC;\n",
+  "rows": [
+    {
+      "id": "30009",
+      "numero": "1000801679",
+      "mes": "2026-03",
+      "valor": "12472.20",
+      "status": "paga",
+      "dataVencimento": "NULL",
+      "dataPagamento": "NULL",
+      "dataEmissao": "2026-03-02",
+      "observacoes": "NULL",
+      "pedidoNumero": "4500809118",
+      "pedidoStatus": "ativo"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tnumero\tmes\tvalor\tstatus\tdataVencimento\tdataPagamento\tdataEmissao\tobservacoes\tpedidoNumero\tpedidoStatus\n30009\t1000801679\t2026-03\t12472.20\tpaga\tNULL\tNULL\t2026-03-02\tNULL\t4500809118\tativo\n",
+  "stderr": "",
+  "execution_time_ms": 617
+}

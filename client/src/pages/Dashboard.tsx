@@ -110,8 +110,13 @@ export default function Dashboard() {
     valorPrevisto: string; tipo: string; responsavel?: string | null;
   };
   type MedicaoAtraso = {
-    id: number; numero: string; pedidoNumero: string;
-    dataVencimento: Date | null; responsavel?: string | null;
+    pedidoId: number;
+    pedidoNumero: string;
+    fornecedorNome: string;
+    mes: string;
+    valorPrevisto: string;
+    responsavel?: string | null;
+    tipoAtraso: "mes_anterior" | "mes_atual_apos_dia10";
   };
   type PedidoAndamento = {
     id: number; numero: string; fornecedorNome: string; tipo: string; valor: string;
@@ -361,24 +366,34 @@ export default function Dashboard() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="text-left pb-2 font-medium">Documento</th>
                 <th className="text-left pb-2 font-medium">Pedido</th>
-                <th className="text-left pb-2 font-medium">Venc.</th>
+                <th className="text-left pb-2 font-medium">Mês</th>
+                <th className="text-left pb-2 font-medium">Valor Prev.</th>
+                <th className="text-left pb-2 font-medium">Tipo</th>
               </tr>
             </thead>
             <tbody>
               {medicoesAtraso.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="py-8 text-center text-gray-400 text-sm">
+                  <td colSpan={4} className="py-8 text-center text-gray-400 text-sm">
                     {filtrado ? `Nenhum atraso para ${filtroResponsavel}` : "Nenhum atraso"}
                   </td>
                 </tr>
               ) : (
-                medicoesAtraso.map((m) => (
-                  <tr key={m.id} className="border-b border-gray-50 last:border-0">
-                    <td className="py-2.5 font-medium text-gray-900">{m.numero}</td>
-                    <td className="py-2.5 text-gray-600">{m.pedidoNumero}</td>
-                    <td className="py-2.5 text-red-600 font-medium">{formatDate(m.dataVencimento)}</td>
+                medicoesAtraso.map((m, idx) => (
+                  <tr key={`${m.pedidoId}-${m.mes}-${idx}`} className="border-b border-gray-50 last:border-0">
+                    <td className="py-2.5 font-medium text-gray-900">{m.pedidoNumero}</td>
+                    <td className="py-2.5 text-gray-600">{getMesLabel(m.mes)}</td>
+                    <td className="py-2.5 text-red-600 font-medium">{formatCurrency(m.valorPrevisto)}</td>
+                    <td className="py-2.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        m.tipoAtraso === "mes_anterior"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-orange-100 text-orange-700"
+                      }`}>
+                        {m.tipoAtraso === "mes_anterior" ? "Mês anterior" : "Após dia 10"}
+                      </span>
+                    </td>
                   </tr>
                 ))
               )}

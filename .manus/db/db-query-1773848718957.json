@@ -1,0 +1,100 @@
+{
+  "query": "\nSELECT \n  m.id,\n  m.numero,\n  m.mes,\n  m.valor,\n  m.status,\n  m.dataVencimento,\n  m.dataPagamento,\n  p.numero AS pedidoNumero\nFROM medicoes m\nJOIN pedidos p ON m.pedidoId = p.id\nORDER BY m.mes DESC, p.numero;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2tvfinjT3YWRDo7.7408439a30da --database iVtsSpUMzjEnbdHEMx4nHU --execute \nSELECT \n  m.id,\n  m.numero,\n  m.mes,\n  m.valor,\n  m.status,\n  m.dataVencimento,\n  m.dataPagamento,\n  p.numero AS pedidoNumero\nFROM medicoes m\nJOIN pedidos p ON m.pedidoId = p.id\nORDER BY m.mes DESC, p.numero;\n",
+  "rows": [
+    {
+      "id": "30001",
+      "numero": "1000801675",
+      "mes": "2026-03",
+      "valor": "4808.66",
+      "status": "paga",
+      "dataVencimento": "2026-03-15",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500802230"
+    },
+    {
+      "id": "30002",
+      "numero": "1000801677",
+      "mes": "2026-03",
+      "valor": "616.43",
+      "status": "paga",
+      "dataVencimento": "2026-03-15",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500802230"
+    },
+    {
+      "id": "30009",
+      "numero": "1000801679",
+      "mes": "2026-03",
+      "valor": "12472.20",
+      "status": "paga",
+      "dataVencimento": "NULL",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500809118"
+    },
+    {
+      "id": "30011",
+      "numero": "1000801695",
+      "mes": "2026-03",
+      "valor": "11129.04",
+      "status": "paga",
+      "dataVencimento": "NULL",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500811001"
+    },
+    {
+      "id": "30008",
+      "numero": "1000801687",
+      "mes": "2026-03",
+      "valor": "6000.00",
+      "status": "paga",
+      "dataVencimento": "NULL",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500811394"
+    },
+    {
+      "id": "30006",
+      "numero": "1000799010",
+      "mes": "2026-02",
+      "valor": "616.43",
+      "status": "paga",
+      "dataVencimento": "NULL",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500802230"
+    },
+    {
+      "id": "30007",
+      "numero": "1000799008",
+      "mes": "2026-02",
+      "valor": "4808.66",
+      "status": "paga",
+      "dataVencimento": "NULL",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500802230"
+    },
+    {
+      "id": "30004",
+      "numero": "1000791844",
+      "mes": "2026-01",
+      "valor": "616.43",
+      "status": "paga",
+      "dataVencimento": "NULL",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500802230"
+    },
+    {
+      "id": "30005",
+      "numero": "1000791846",
+      "mes": "2026-01",
+      "valor": "4808.66",
+      "status": "paga",
+      "dataVencimento": "NULL",
+      "dataPagamento": "NULL",
+      "pedidoNumero": "4500802230"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tnumero\tmes\tvalor\tstatus\tdataVencimento\tdataPagamento\tpedidoNumero\n30001\t1000801675\t2026-03\t4808.66\tpaga\t2026-03-15\tNULL\t4500802230\n30002\t1000801677\t2026-03\t616.43\tpaga\t2026-03-15\tNULL\t4500802230\n30009\t1000801679\t2026-03\t12472.20\tpaga\tNULL\tNULL\t4500809118\n30011\t1000801695\t2026-03\t11129.04\tpaga\tNULL\tNULL\t4500811001\n30008\t1000801687\t2026-03\t6000.00\tpaga\tNULL\tNULL\t4500811394\n30006\t1000799010\t2026-02\t616.43\tpaga\tNULL\tNULL\t4500802230\n30007\t1000799008\t2026-02\t4808.66\tpaga\tNULL\tNULL\t4500802230\n30004\t1000791844\t2026-01\t616.43\tpaga\tNULL\tNULL\t4500802230\n30005\t1000791846\t2026-01\t4808.66\tpaga\tNULL\tNULL\t4500802230\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}
