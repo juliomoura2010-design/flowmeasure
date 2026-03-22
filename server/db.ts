@@ -338,6 +338,37 @@ export async function getMedicoesComDados(mes?: string) {
   });
 }
 
+// ===== HELPER: calcula se um mês específico é válido para medição dado a frequência e data de início =====
+// frequencia: "mensal" = todo mês, "trimestral" = a cada 3 meses, "semestral" = a cada 6, "anual" = a cada 12
+// A referência é sempre o mês de início do pedido.
+export function mesEhValidoParaMedicao(
+  mes: string, // YYYY-MM
+  frequencia: string | null | undefined,
+  dataInicio: Date | string | null | undefined
+): boolean {
+  const freq = frequencia || "mensal";
+  if (freq === "mensal") return true;
+
+  // Calcular o intervalo em meses
+  const intervalo = freq === "trimestral" ? 3 : freq === "semestral" ? 6 : freq === "anual" ? 12 : 1;
+
+  // Mês de referência: usa dataInicio se disponível, senão o próprio mês (sem referência = sempre válido)
+  if (!dataInicio) return true;
+
+  const inicioStr = typeof dataInicio === "string"
+    ? dataInicio.substring(0, 7)
+    : dataInicio.toISOString().substring(0, 7);
+
+  const [anoInicio, mesInicio] = inicioStr.split("-").map(Number);
+  const [anoAlvo, mesAlvo] = mes.split("-").map(Number);
+
+  // Diferença em meses entre o mês alvo e o mês de início
+  const diffMeses = (anoAlvo - anoInicio) * 12 + (mesAlvo - mesInicio);
+
+  // O mês é válido se a diferença for múltiplo do intervalo e não negativa
+  return diffMeses >= 0 && diffMeses % intervalo === 0;
+}
+
 // Controle de medições do mês: pedidos ativos e suas medições
 export async function getControleMedicoesMes(mes: string) {
   const db = await getDb();
@@ -347,12 +378,15 @@ export async function getControleMedicoesMes(mes: string) {
   const medicoesMes = await db.select().from(medicoes).where(eq(medicoes.mes, mes));
   const todasMedicoes = await db.select().from(medicoes);
 
-  // Filtrar apenas pedidos que já iniciaram no mês selecionado
-  // mes formato: YYYY-MM, dataInicio formato: Date (YYYY-MM-DD)
+  // Filtrar apenas pedidos que já iniciaram no mês selecionado E cujo mês é válido pela frequência
   const pedidosDoMes = pedidosAtivos.filter(p => {
-    if (!p.dataInicio) return true; // sem data de início, sempre inclui
-    const inicioMes = p.dataInicio.toISOString().substring(0, 7); // YYYY-MM
-    return inicioMes <= mes; // pedido iniciou antes ou no mês selecionado
+    // Verificar se o pedido já iniciou
+    if (p.dataInicio) {
+      const inicioMes = p.dataInicio.toISOString().substring(0, 7);
+      if (inicioMes > mes) return false;
+    }
+    // Verificar se o mês é válido para a frequência do pedido
+    return mesEhValidoParaMedicao(mes, p.frequencia, p.dataInicio);
   });
 
   return pedidosDoMes.map(p => {
@@ -397,14 +431,16 @@ export async function getDashboardData() {
   const totalMedicoesPagas = medicoesPagas.reduce((sum, m) => sum + parseFloat(m.valor || "0"), 0);
 
   // Medições a criar no mês atual (pedidos ativos sem medição no mês)
-  // Apenas pedidos que já iniciaram no mês atual
+  // Respeita frequência: só inclui pedidos cujo mês atual é válido pela frequência
   const medicoesMesAtual = allMedicoes.filter(m => m.mes === mesAtual);
   const pedidosSemMedicaoMes = pedidosAtivos.filter(p => {
     // Verificar se o pedido já iniciou no mês atual
     if (p.dataInicio) {
-      const inicioMes = new Date(p.dataInicio).toISOString().substring(0, 7); // YYYY-MM
-      if (inicioMes > mesAtual) return false; // pedido ainda não iniciou
+      const inicioMes = new Date(p.dataInicio).toISOString().substring(0, 7);
+      if (inicioMes > mesAtual) return false;
     }
+    // Verificar se o mês atual é válido para a frequência do pedido
+    if (!mesEhValidoParaMedicao(mesAtual, p.frequencia, p.dataInicio)) return false;
     return !medicoesMesAtual.find(m => m.pedidoId === p.id);
   });
 
@@ -453,12 +489,13 @@ export async function getDashboardData() {
       mesVerif = limite.getMonth();
     }
 
-    // Verificar meses anteriores ao atual
+    // Verificar meses anteriores ao atual — respeitando a frequência
     let a = anoVerif;
     let m = mesVerif;
     while (a < anoAtual || (a === anoAtual && m < mesNumAtual)) {
       const mesStr = `${a}-${String(m + 1).padStart(2, "0")}`;
-      if (!mesesComMedicao.has(mesStr)) {
+      // Só verifica meses que são válidos para a frequência do pedido
+      if (mesEhValidoParaMedicao(mesStr, p.frequencia, p.dataInicio) && !mesesComMedicao.has(mesStr)) {
         pedidosEmAtraso.push({
           pedidoId: p.id,
           pedidoNumero: p.numero,
@@ -473,9 +510,9 @@ export async function getDashboardData() {
       if (m > 11) { m = 0; a++; }
     }
 
-    // Verificar mês atual: em atraso se hoje > dia 10 e não tem medição
-    if (diaHoje > 10 && !mesesComMedicao.has(mesAtual)) {
-      // Verificar se o pedido já iniciou no mês atual
+    // Verificar mês atual: em atraso se hoje > dia 10, não tem medição E o mês é válido pela frequência
+    if (diaHoje > 10 && !mesesComMedicao.has(mesAtual)
+      && mesEhValidoParaMedicao(mesAtual, p.frequencia, p.dataInicio)) {
       if (!inicioMes || inicioMes <= mesAtual) {
         pedidosEmAtraso.push({
           pedidoId: p.id,
@@ -588,6 +625,9 @@ export async function getDashboardGerencial(mes: string) {
     const totalMed = p.totalMedicoes || 12;
     const valorPorMedicao = totalMed > 0 ? valorTotal / totalMed : valorTotal;
 
+    // Verificar se o mês selecionado é válido para a frequência do pedido
+    const mesValidoParaFrequencia = mesEhValidoParaMedicao(mes, p.frequencia, p.dataInicio);
+
     if (!mapaResponsaveis.has(responsavel)) {
       mapaResponsaveis.set(responsavel, {
         responsavel,
@@ -602,6 +642,9 @@ export async function getDashboardGerencial(mes: string) {
     const entry = mapaResponsaveis.get(responsavel)!;
     entry.totalPedidos += 1;
     entry.valorTotal += valorTotal;
+
+    // Só conta como criada/pendente se o mês for válido para a frequência
+    if (!mesValidoParaFrequencia) continue; // pedido não precisa de medição neste mês
 
     if (temMedicaoMes) {
       entry.medicoesCriadas += 1;

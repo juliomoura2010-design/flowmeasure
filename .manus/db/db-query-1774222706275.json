@@ -1,0 +1,22 @@
+{
+  "query": "\nSELECT p.id, p.numero, p.tipo, p.valor, p.totalMedicoes, p.dataInicio, p.status, p.responsavel,\n       p.createdAt,\n       (SELECT GROUP_CONCAT(m.mes ORDER BY m.mes) FROM medicoes m WHERE m.pedidoId = p.id) AS mesesComMedicao\nFROM pedidos p\nWHERE p.numero = '4500813752';\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2tvfinjT3YWRDo7.7408439a30da --database iVtsSpUMzjEnbdHEMx4nHU --execute \nSELECT p.id, p.numero, p.tipo, p.valor, p.totalMedicoes, p.dataInicio, p.status, p.responsavel,\n       p.createdAt,\n       (SELECT GROUP_CONCAT(m.mes ORDER BY m.mes) FROM medicoes m WHERE m.pedidoId = p.id) AS mesesComMedicao\nFROM pedidos p\nWHERE p.numero = '4500813752';\n",
+  "rows": [
+    {
+      "id": "60002",
+      "numero": "4500813752",
+      "tipo": "fixo",
+      "valor": "1406057.16",
+      "totalMedicoes": "4",
+      "dataInicio": "2026-03-01",
+      "status": "ativo",
+      "responsavel": "julio",
+      "createdAt": "2026-03-20 13:08:18",
+      "mesesComMedicao": "2026-03"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tnumero\ttipo\tvalor\ttotalMedicoes\tdataInicio\tstatus\tresponsavel\tcreatedAt\tmesesComMedicao\n60002\t4500813752\tfixo\t1406057.16\t4\t2026-03-01\tativo\tjulio\t2026-03-20 13:08:18\t2026-03\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

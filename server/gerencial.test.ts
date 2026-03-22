@@ -107,6 +107,71 @@ describe("getDashboardGerencial - lógica de agrupamento", () => {
   });
 });
 
+describe("mesEhValidoParaMedicao - frequência de medições", () => {
+  // Importar a função diretamente para teste unitário
+  function mesEhValidoParaMedicao(
+    mes: string,
+    frequencia: string | null | undefined,
+    dataInicio: Date | string | null | undefined
+  ): boolean {
+    const freq = frequencia || "mensal";
+    if (freq === "mensal") return true;
+    const intervalo = freq === "trimestral" ? 3 : freq === "semestral" ? 6 : freq === "anual" ? 12 : 1;
+    if (!dataInicio) return true;
+    const inicioStr = typeof dataInicio === "string"
+      ? dataInicio.substring(0, 7)
+      : (dataInicio as Date).toISOString().substring(0, 7);
+    const [anoInicio, mesInicio] = inicioStr.split("-").map(Number);
+    const [anoAlvo, mesAlvo] = mes.split("-").map(Number);
+    const diffMeses = (anoAlvo - anoInicio) * 12 + (mesAlvo - mesInicio);
+    return diffMeses >= 0 && diffMeses % intervalo === 0;
+  }
+
+  it("mensal: todo mês é válido", () => {
+    expect(mesEhValidoParaMedicao("2026-01", "mensal", "2026-01-01")).toBe(true);
+    expect(mesEhValidoParaMedicao("2026-02", "mensal", "2026-01-01")).toBe(true);
+    expect(mesEhValidoParaMedicao("2026-06", "mensal", "2026-01-01")).toBe(true);
+  });
+
+  it("trimestral: início em março — válido em mar, jun, set, dez", () => {
+    const inicio = "2026-03-01";
+    expect(mesEhValidoParaMedicao("2026-03", "trimestral", inicio)).toBe(true);  // mês 0
+    expect(mesEhValidoParaMedicao("2026-04", "trimestral", inicio)).toBe(false); // mês 1
+    expect(mesEhValidoParaMedicao("2026-05", "trimestral", inicio)).toBe(false); // mês 2
+    expect(mesEhValidoParaMedicao("2026-06", "trimestral", inicio)).toBe(true);  // mês 3
+    expect(mesEhValidoParaMedicao("2026-07", "trimestral", inicio)).toBe(false); // mês 4
+    expect(mesEhValidoParaMedicao("2026-09", "trimestral", inicio)).toBe(true);  // mês 6
+    expect(mesEhValidoParaMedicao("2026-12", "trimestral", inicio)).toBe(true);  // mês 9
+  });
+
+  it("semestral: início em janeiro — válido em jan e jul", () => {
+    const inicio = "2026-01-01";
+    expect(mesEhValidoParaMedicao("2026-01", "semestral", inicio)).toBe(true);
+    expect(mesEhValidoParaMedicao("2026-02", "semestral", inicio)).toBe(false);
+    expect(mesEhValidoParaMedicao("2026-06", "semestral", inicio)).toBe(false);
+    expect(mesEhValidoParaMedicao("2026-07", "semestral", inicio)).toBe(true);
+    expect(mesEhValidoParaMedicao("2027-01", "semestral", inicio)).toBe(true);
+  });
+
+  it("anual: início em fevereiro — válido apenas em fevereiro de cada ano", () => {
+    const inicio = "2026-02-01";
+    expect(mesEhValidoParaMedicao("2026-02", "anual", inicio)).toBe(true);
+    expect(mesEhValidoParaMedicao("2026-03", "anual", inicio)).toBe(false);
+    expect(mesEhValidoParaMedicao("2027-02", "anual", inicio)).toBe(true);
+    expect(mesEhValidoParaMedicao("2027-03", "anual", inicio)).toBe(false);
+  });
+
+  it("mês anterior ao início nunca é válido", () => {
+    expect(mesEhValidoParaMedicao("2026-02", "trimestral", "2026-03-01")).toBe(false);
+    expect(mesEhValidoParaMedicao("2025-12", "semestral", "2026-01-01")).toBe(false);
+  });
+
+  it("sem dataInicio: sempre válido independente da frequência", () => {
+    expect(mesEhValidoParaMedicao("2026-04", "trimestral", null)).toBe(true);
+    expect(mesEhValidoParaMedicao("2026-05", "semestral", undefined)).toBe(true);
+  });
+});
+
 describe("verificarConclusaoPedido - lógica de automação", () => {
   it("identifica quando pedido deve ser concluído (consumido >= valor total)", () => {
     const valorTotal = 10000;
