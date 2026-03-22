@@ -378,7 +378,8 @@ export async function getControleMedicoesMes(mes: string) {
   const medicoesMes = await db.select().from(medicoes).where(eq(medicoes.mes, mes));
   const todasMedicoes = await db.select().from(medicoes);
 
-  // Filtrar apenas pedidos que já iniciaram no mês selecionado E cujo mês é válido pela frequência
+  // Filtrar apenas pedidos que já iniciaram no mês selecionado, cujo mês é válido pela frequência
+  // E que ainda não atingiram o totalMedicoes
   const pedidosDoMes = pedidosAtivos.filter(p => {
     // Verificar se o pedido já iniciou
     if (p.dataInicio) {
@@ -386,7 +387,12 @@ export async function getControleMedicoesMes(mes: string) {
       if (inicioMes > mes) return false;
     }
     // Verificar se o mês é válido para a frequência do pedido
-    return mesEhValidoParaMedicao(mes, p.frequencia, p.dataInicio);
+    if (!mesEhValidoParaMedicao(mes, p.frequencia, p.dataInicio)) return false;
+    // Verificar se o pedido ainda não atingiu o limite de medições
+    const totalMed = p.totalMedicoes || 12;
+    const medicoesJaCriadas = todasMedicoes.filter(m => m.pedidoId === p.id && m.status !== "cancelada").length;
+    if (medicoesJaCriadas >= totalMed) return false;
+    return true;
   });
 
   return pedidosDoMes.map(p => {
@@ -431,7 +437,7 @@ export async function getDashboardData() {
   const totalMedicoesPagas = medicoesPagas.reduce((sum, m) => sum + parseFloat(m.valor || "0"), 0);
 
   // Medições a criar no mês atual (pedidos ativos sem medição no mês)
-  // Respeita frequência: só inclui pedidos cujo mês atual é válido pela frequência
+  // Respeita frequência e totalMedicoes
   const medicoesMesAtual = allMedicoes.filter(m => m.mes === mesAtual);
   const pedidosSemMedicaoMes = pedidosAtivos.filter(p => {
     // Verificar se o pedido já iniciou no mês atual
@@ -441,6 +447,10 @@ export async function getDashboardData() {
     }
     // Verificar se o mês atual é válido para a frequência do pedido
     if (!mesEhValidoParaMedicao(mesAtual, p.frequencia, p.dataInicio)) return false;
+    // Verificar se o pedido ainda não atingiu o limite de medições
+    const totalMed = p.totalMedicoes || 12;
+    const medicoesJaCriadas = allMedicoes.filter(m => m.pedidoId === p.id && m.status !== "cancelada").length;
+    if (medicoesJaCriadas >= totalMed) return false;
     return !medicoesMesAtual.find(m => m.pedidoId === p.id);
   });
 
@@ -470,6 +480,10 @@ export async function getDashboardData() {
     const valorPorMedicao = totalMed > 0 ? valorTotal / totalMed : valorTotal;
     const medicoesDoPedido = allMedicoes.filter(m => m.pedidoId === p.id);
     const mesesComMedicao = new Set(medicoesDoPedido.map(m => m.mes));
+
+    // Se o pedido já atingiu o totalMedicoes, não gera atraso
+    const medicoesNaoCanceladas = medicoesDoPedido.filter(m => m.status !== "cancelada").length;
+    if (medicoesNaoCanceladas >= totalMed) continue;
 
     // Calcular meses desde o início até o mês anterior ao atual
     const anoAtual = hoje.getFullYear();
@@ -644,7 +658,11 @@ export async function getDashboardGerencial(mes: string) {
     entry.valorTotal += valorTotal;
 
     // Só conta como criada/pendente se o mês for válido para a frequência
-    if (!mesValidoParaFrequencia) continue; // pedido não precisa de medição neste mês
+    if (!mesValidoParaFrequencia) continue;
+
+    // Verificar se o pedido já atingiu o totalMedicoes (ignorando canceladas)
+    const medicoesNaoCanceladas = allMedicoes.filter(m => m.pedidoId === p.id && m.status !== "cancelada").length;
+    if (medicoesNaoCanceladas >= totalMed) continue; // pedido já completou todas as medições previstas
 
     if (temMedicaoMes) {
       entry.medicoesCriadas += 1;

@@ -172,6 +172,49 @@ describe("mesEhValidoParaMedicao - frequência de medições", () => {
   });
 });
 
+describe("totalMedicoes - limite de medições previstas", () => {
+  it("pedido com totalMedicoes=1 e 1 medição criada não deve aparecer como pendente", () => {
+    const pedido = { totalMedicoes: 1, status: "ativo" };
+    const medicoesDoPedido = [{ status: "pendente" }];
+    const medicoesNaoCanceladas = medicoesDoPedido.filter(m => m.status !== "cancelada").length;
+    expect(medicoesNaoCanceladas >= (pedido.totalMedicoes || 12)).toBe(true);
+  });
+
+  it("pedido com totalMedicoes=4 e 3 medições criadas ainda deve aparecer como pendente", () => {
+    const pedido = { totalMedicoes: 4, status: "ativo" };
+    const medicoesDoPedido = [
+      { status: "paga" },
+      { status: "paga" },
+      { status: "paga" },
+    ];
+    const medicoesNaoCanceladas = medicoesDoPedido.filter(m => m.status !== "cancelada").length;
+    expect(medicoesNaoCanceladas >= (pedido.totalMedicoes || 12)).toBe(false);
+  });
+
+  it("medições canceladas não contam para o limite de totalMedicoes", () => {
+    const pedido = { totalMedicoes: 2, status: "ativo" };
+    const medicoesDoPedido = [
+      { status: "paga" },
+      { status: "cancelada" }, // não deve contar
+    ];
+    const medicoesNaoCanceladas = medicoesDoPedido.filter(m => m.status !== "cancelada").length;
+    // Apenas 1 não cancelada, limite é 2 — ainda pendente
+    expect(medicoesNaoCanceladas >= (pedido.totalMedicoes || 12)).toBe(false);
+  });
+
+  it("pedido com totalMedicoes=4 e 4 medições criadas não deve aparecer como pendente", () => {
+    const pedido = { totalMedicoes: 4, status: "ativo" };
+    const medicoesDoPedido = [
+      { status: "paga" },
+      { status: "paga" },
+      { status: "paga" },
+      { status: "pendente" },
+    ];
+    const medicoesNaoCanceladas = medicoesDoPedido.filter(m => m.status !== "cancelada").length;
+    expect(medicoesNaoCanceladas >= (pedido.totalMedicoes || 12)).toBe(true);
+  });
+});
+
 describe("verificarConclusaoPedido - lógica de automação", () => {
   it("identifica quando pedido deve ser concluído (consumido >= valor total)", () => {
     const valorTotal = 10000;

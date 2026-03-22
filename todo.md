@@ -83,3 +83,4 @@
 - [ ] Proteção de rotas: redirecionar para login se não autenticado — ADIADO para próxima fase
 - [x] BUG/MELHORIA: Regra de "Em Atraso" — mostrar pedidos sem medição criada em meses anteriores + pedidos do mês atual sem medição após dia 10
 - [x] BUG: Lógica de medições a criar não respeita a frequência do pedido (mensal, trimestral, etc.) — ex: pedido trimestral aparece como pendente em todos os meses
+- [x] BUG: Logica de medicoes nao respeita totalMedicoes — pedido com 1 medicao prevista continua aparecendo como pendente nos meses seguintes apos a medicao ser criada
