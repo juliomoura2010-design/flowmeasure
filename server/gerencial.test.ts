@@ -215,6 +215,48 @@ describe("totalMedicoes - limite de medições previstas", () => {
   });
 });
 
+describe("renovacao de contratos - lógica de cadeia", () => {
+  it("pedido mensal concluído sem sucessor deve aparecer para renovação", () => {
+    const pedido = { id: 1, tipo: "mensal", status: "concluido" };
+    const todosOsPedidos = [pedido];
+    const pedidosComSucessor = new Set(todosOsPedidos.filter(p => (p as any).pedidoOrigemId).map(p => (p as any).pedidoOrigemId));
+    const deveRenovar = pedido.tipo === "mensal" && pedido.status === "concluido" && !pedidosComSucessor.has(pedido.id);
+    expect(deveRenovar).toBe(true);
+  });
+
+  it("pedido fixo (spot) concluído NÃO deve aparecer para renovação", () => {
+    const pedido = { id: 2, tipo: "fixo", status: "concluido" };
+    const deveRenovar = pedido.tipo === "mensal" && pedido.status === "concluido";
+    expect(deveRenovar).toBe(false);
+  });
+
+  it("pedido mensal concluído COM sucessor não deve aparecer para renovação", () => {
+    const pedidoOrigem = { id: 1, tipo: "mensal", status: "concluido" };
+    const pedidoSucessor = { id: 2, tipo: "mensal", status: "ativo", pedidoOrigemId: 1 };
+    const todosOsPedidos = [pedidoOrigem, pedidoSucessor];
+    const pedidosComSucessor = new Set(todosOsPedidos.filter(p => (p as any).pedidoOrigemId).map(p => (p as any).pedidoOrigemId));
+    const deveRenovar = pedidoOrigem.tipo === "mensal" && pedidoOrigem.status === "concluido" && !pedidosComSucessor.has(pedidoOrigem.id);
+    expect(deveRenovar).toBe(false);
+  });
+
+  it("pedido encerrado nunca deve aparecer para renovação", () => {
+    const pedido = { id: 3, tipo: "mensal", status: "encerrado" };
+    const deveRenovar = pedido.tipo === "mensal" && pedido.status === "concluido";
+    expect(deveRenovar).toBe(false);
+  });
+
+  it("cadeia de renovações: A -> B -> C, apenas C sem sucessor deve renovar", () => {
+    const pedidoA = { id: 1, tipo: "mensal", status: "concluido", pedidoOrigemId: null };
+    const pedidoB = { id: 2, tipo: "mensal", status: "concluido", pedidoOrigemId: 1 };
+    const pedidoC = { id: 3, tipo: "mensal", status: "concluido", pedidoOrigemId: 2 };
+    const todos = [pedidoA, pedidoB, pedidoC];
+    const pedidosComSucessor = new Set(todos.filter(p => p.pedidoOrigemId).map(p => p.pedidoOrigemId!));
+    const paraRenovar = todos.filter(p => p.tipo === "mensal" && p.status === "concluido" && !pedidosComSucessor.has(p.id));
+    expect(paraRenovar).toHaveLength(1);
+    expect(paraRenovar[0].id).toBe(3);
+  });
+});
+
 describe("verificarConclusaoPedido - lógica de automação", () => {
   it("identifica quando pedido deve ser concluído (consumido >= valor total)", () => {
     const valorTotal = 10000;

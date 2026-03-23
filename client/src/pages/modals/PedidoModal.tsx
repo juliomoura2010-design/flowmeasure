@@ -4,9 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 
 type Fornecedor = { id: number; nome: string };
 
@@ -15,6 +17,21 @@ type Props = {
   onClose: () => void;
   editingId?: number | null;
   fornecedores?: Fornecedor[];
+  // Modo renovação: pré-preenche com dados do pedido de origem
+  renovacaoDe?: {
+    pedidoId: number;
+    pedidoNumero: string;
+    fornecedorId: number;
+    fornecedorNome: string;
+    descricao: string;
+    valor: string;
+    totalMedicoes: number;
+    frequencia: string;
+    tipoGasto: string;
+    elementoPep: string | null;
+    responsavel: string | null;
+    tipo: string;
+  } | null;
 };
 
 function toDateInput(d: Date | string | null | undefined) {
@@ -39,7 +56,7 @@ const defaultForm = {
   observacoes: "",
 };
 
-export default function PedidoModal({ open, onClose, editingId, fornecedores: fornecedoresProp }: Props) {
+export default function PedidoModal({ open, onClose, editingId, fornecedores: fornecedoresProp, renovacaoDe }: Props) {
   const [form, setForm] = useState(defaultForm);
 
   const utils = trpc.useUtils();
@@ -69,17 +86,36 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
         status: pedidoData.status,
         observacoes: pedidoData.observacoes ?? "",
       });
+    } else if (renovacaoDe && !editingId) {
+      // Modo renovação: pré-preenche com dados do pedido de origem
+      setForm({
+        numero: "",
+        fornecedorId: String(renovacaoDe.fornecedorId),
+        descricao: renovacaoDe.descricao || "",
+        valor: renovacaoDe.valor,
+        dataInicio: "",
+        dataFim: "",
+        tipo: renovacaoDe.tipo,
+        totalMedicoes: String(renovacaoDe.totalMedicoes),
+        elementoPep: renovacaoDe.elementoPep || "",
+        tipoGasto: renovacaoDe.tipoGasto,
+        responsavel: renovacaoDe.responsavel || "",
+        frequencia: renovacaoDe.frequencia,
+        status: "ativo",
+        observacoes: "",
+      });
     } else if (!editingId) {
       setForm(defaultForm);
     }
-  }, [editingId, pedidoData, open]);
+  }, [editingId, pedidoData, open, renovacaoDe]);
 
   const createMutation = trpc.pedidos.create.useMutation({
     onSuccess: () => {
-      toast.success("Pedido criado com sucesso");
+      toast.success(renovacaoDe ? "Contrato renovado com sucesso!" : "Pedido criado com sucesso");
       utils.pedidos.listComStats.invalidate();
       utils.dashboard.getData.invalidate();
       utils.dashboard.getGerencial.invalidate();
+      utils.renovacoes.contratosParaRenovar.invalidate();
       onClose();
     },
     onError: (e) => toast.error("Erro ao criar pedido: " + e.message),
@@ -91,6 +127,7 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
       utils.pedidos.listComStats.invalidate();
       utils.dashboard.getData.invalidate();
       utils.dashboard.getGerencial.invalidate();
+      utils.renovacoes.contratosParaRenovar.invalidate();
       onClose();
     },
     onError: (e) => toast.error("Erro ao atualizar pedido: " + e.message),
@@ -102,18 +139,16 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
     if (!form.fornecedorId) { toast.error("Fornecedor é obrigatório"); return; }
     if (!form.valor) { toast.error("Valor é obrigatório"); return; }
 
-    // Validação: PEP obrigatório quando Capex
     if (form.tipoGasto === "capex" && !form.elementoPep.trim()) {
       toast.error("Elemento PEP é obrigatório para pedidos do tipo Capex");
       return;
     }
-    // Validação: formato do PEP
     if (form.elementoPep.trim() && !PEP_REGEX.test(form.elementoPep.trim())) {
       toast.error("Formato inválido. Use o padrão: CBF.26.001");
       return;
     }
 
-    const data = {
+    const data: any = {
       numero: form.numero,
       fornecedorId: parseInt(form.fornecedorId),
       descricao: form.descricao || null,
@@ -126,9 +161,14 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
       tipoGasto: form.tipoGasto as "capex" | "opex",
       responsavel: form.responsavel.trim() || null,
       frequencia: form.frequencia as "mensal" | "trimestral" | "semestral" | "anual",
-      status: form.status as "ativo" | "concluido" | "cancelado",
+      status: form.status as "ativo" | "concluido" | "cancelado" | "encerrado",
       observacoes: form.observacoes || null,
     };
+
+    // Em modo renovação, vincular ao pedido de origem
+    if (renovacaoDe && !editingId) {
+      data.pedidoOrigemId = renovacaoDe.pedidoId;
+    }
 
     if (editingId) {
       updateMutation.mutate({ id: editingId, data });
@@ -139,13 +179,11 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const isCapex = form.tipoGasto === "capex";
+  const isRenovacao = !!renovacaoDe && !editingId;
 
-  // Formato PEP: CBF.26.001 (3 letras + ponto + 2 dígitos + ponto + 3 dígitos = 9 chars)
   const PEP_REGEX = /^[A-Za-z]{3}\.[0-9]{2}\.[0-9]{3}$/;
   const pepValido = !form.elementoPep.trim() || PEP_REGEX.test(form.elementoPep.trim());
 
-  // Máscara PEP: remove tudo que não é alfanumérico, limita a 8 chars limpos (3+2+3),
-  // depois insere pontos nas posições 3 e 5 do resultado final
   const handlePepChange = (raw: string) => {
     const cleaned = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
     const limited = cleaned.slice(0, 8);
@@ -162,13 +200,28 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading">{editingId ? "Editar Pedido" : "Novo Pedido"}</DialogTitle>
+          <DialogTitle className="font-heading flex items-center gap-2">
+            {isRenovacao && <RefreshCw className="h-4 w-4 text-blue-500" />}
+            {editingId ? "Editar Pedido" : isRenovacao ? "Renovar Contrato" : "Novo Pedido"}
+          </DialogTitle>
         </DialogHeader>
+
+        {/* Banner de renovação */}
+        {isRenovacao && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            <div className="flex items-center gap-2 font-medium mb-1">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Renovação do pedido <span className="font-bold">{renovacaoDe.pedidoNumero}</span>
+            </div>
+            <p className="text-blue-600 text-xs">Os dados foram pré-preenchidos com base no contrato anterior. Ajuste o número do novo pedido e as datas.</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Número <span className="text-destructive">*</span></Label>
-              <Input value={form.numero} onChange={e => setForm(p => ({ ...p, numero: e.target.value }))} placeholder="Ex: PED-2025-001" required />
+              <Input value={form.numero} onChange={e => setForm(p => ({ ...p, numero: e.target.value }))} placeholder={isRenovacao ? "Número do novo pedido" : "Ex: PED-2025-001"} required />
             </div>
             <div className="space-y-1.5">
               <Label>Fornecedor <span className="text-destructive">*</span></Label>
@@ -210,7 +263,6 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
               </Select>
             </div>
 
-            {/* Campo PEP — aparece e é obrigatório apenas quando Capex */}
             <div className={`space-y-1.5 transition-all ${isCapex ? "opacity-100" : "opacity-0 pointer-events-none h-0 overflow-hidden"}`}>
               <Label>
                 Elemento PEP {isCapex && <span className="text-destructive">*</span>}
@@ -245,8 +297,8 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
               <Select value={form.tipo} onValueChange={v => setForm(p => ({ ...p, tipo: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fixo">Fixo (nº fixo de medições)</SelectItem>
-                  <SelectItem value="mensal">Mensal (recorrente)</SelectItem>
+                  <SelectItem value="fixo">Spot (nº fixo de parcelas)</SelectItem>
+                  <SelectItem value="mensal">Contrato (recorrente)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -282,8 +334,17 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
                   <SelectItem value="ativo">Ativo</SelectItem>
                   <SelectItem value="concluido">Concluído</SelectItem>
                   <SelectItem value="cancelado">Cancelado</SelectItem>
+                  <SelectItem value="encerrado">
+                    <span className="flex items-center gap-2">
+                      Encerrado
+                      <Badge variant="outline" className="text-xs border-gray-400 text-gray-500">Sem renovação</Badge>
+                    </span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
+              {form.status === "encerrado" && (
+                <p className="text-xs text-muted-foreground">Este contrato não será renovado. A cadeia de renovações será encerrada.</p>
+              )}
             </div>
             <div className="sm:col-span-2 space-y-1.5">
               <Label>Observações</Label>
@@ -292,8 +353,8 @@ export default function PedidoModal({ open, onClose, editingId, fornecedores: fo
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={isLoading} className="bg-primary text-primary-foreground">
-              {isLoading ? "Salvando..." : editingId ? "Salvar Alterações" : "Criar Pedido"}
+            <Button type="submit" disabled={isLoading} className={isRenovacao ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-primary text-primary-foreground"}>
+              {isLoading ? "Salvando..." : isRenovacao ? "Confirmar Renovação" : editingId ? "Salvar Alterações" : "Criar Pedido"}
             </Button>
           </div>
         </form>

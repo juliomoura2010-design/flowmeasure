@@ -45,14 +45,17 @@ export const pedidos = mysqlTable("pedidos", {
   valor: decimal("valor", { precision: 15, scale: 2 }).notNull(),
   dataInicio: date("dataInicio"),
   dataFim: date("dataFim"),
-  // tipo: "fixo" = número fixo de medições (totalMedicoes), "mensal" = recorrente mensal
+  // tipo: "fixo" = spot (número fixo de parcelas, sem renovação), "mensal" = contrato (recorrente, gera renovação)
   tipo: mysqlEnum("tipo", ["fixo", "mensal"]).default("mensal").notNull(),
   totalMedicoes: int("totalMedicoes").default(12), // total de medições previstas
   elementoPep: varchar("elementoPep", { length: 100 }), // obrigatório quando tipoGasto = capex
   tipoGasto: mysqlEnum("tipoGasto", ["capex", "opex"]).default("opex").notNull(),
   responsavel: varchar("responsavel", { length: 255 }), // nome do responsável por criar as medições
   frequencia: mysqlEnum("frequencia", ["mensal", "trimestral", "semestral", "anual"]).default("mensal").notNull(),
-  status: mysqlEnum("status", ["ativo", "concluido", "cancelado"]).default("ativo").notNull(),
+  // "encerrado" = concluiu todas as medições e não será renovado (encerra a cadeia de renovações)
+  status: mysqlEnum("status", ["ativo", "concluido", "cancelado", "encerrado"]).default("ativo").notNull(),
+  // Cadeia de renovações: aponta para o pedido que originou este (null = pedido original)
+  pedidoOrigemId: int("pedidoOrigemId"),
   observacoes: text("observacoes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -80,4 +83,3 @@ export const medicoes = mysqlTable("medicoes", {
 
 export type Medicao = typeof medicoes.$inferSelect;
 export type InsertMedicao = typeof medicoes.$inferInsert;
-

@@ -1,0 +1,26 @@
+{
+  "query": "SELECT DISTINCT tipo, status FROM pedidos ORDER BY tipo, status;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2tvfinjT3YWRDo7.7408439a30da --database iVtsSpUMzjEnbdHEMx4nHU --execute SELECT DISTINCT tipo, status FROM pedidos ORDER BY tipo, status;",
+  "rows": [
+    {
+      "tipo": "fixo",
+      "status": "ativo"
+    },
+    {
+      "tipo": "fixo",
+      "status": "concluido"
+    },
+    {
+      "tipo": "mensal",
+      "status": "ativo"
+    },
+    {
+      "tipo": "mensal",
+      "status": "concluido"
+    }
+  ],
+  "messages": [],
+  "stdout": "tipo\tstatus\nfixo\tativo\nfixo\tconcluido\nmensal\tativo\nmensal\tconcluido\n",
+  "stderr": "",
+  "execution_time_ms": 74
+}

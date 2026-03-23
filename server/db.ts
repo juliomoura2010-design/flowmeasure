@@ -142,17 +142,23 @@ export async function deletePedido(id: number) {
 }
 
 // Pedidos com stats de medições (X/Y, pago, próxima medição)
-export async function getPedidosComStats(fornecedorId?: number, tipo?: string) {
+export async function getPedidosComStats(fornecedorId?: number, tipo?: string, status?: string) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [];
   if (fornecedorId) conditions.push(eq(pedidos.fornecedorId, fornecedorId));
   if (tipo) conditions.push(eq(pedidos.tipo, tipo as "fixo" | "mensal"));
+  if (status) conditions.push(eq(pedidos.status, status as any));
   const allPedidos = conditions.length > 0
     ? await db.select().from(pedidos).where(and(...conditions)).orderBy(desc(pedidos.createdAt))
     : await db.select().from(pedidos).orderBy(desc(pedidos.createdAt));
   const allFornecedores = await db.select().from(fornecedores);
   const allMedicoes = await db.select().from(medicoes);
+
+  // Mapa de pedidoOrigemId -> numero (para mostrar de qual pedido este é renovação)
+  const pedidoNumeroMap = new Map(allPedidos.map(p => [p.id, p.numero]));
+  // Conjunto de pedidos que têm sucessor (algum outro pedido aponta para eles)
+  const pedidosComSucessor = new Set(allPedidos.filter(p => p.pedidoOrigemId).map(p => p.pedidoOrigemId!));
 
   return allPedidos.map(p => {
     const fornecedor = allFornecedores.find(f => f.id === p.fornecedorId);
@@ -187,6 +193,8 @@ export async function getPedidosComStats(fornecedorId?: number, tipo?: string) {
       totalPago,
       totalConsumido,
       proximaMedicao,
+      pedidoOrigemNumero: p.pedidoOrigemId ? (pedidoNumeroMap.get(p.pedidoOrigemId) || null) : null,
+      temSucessor: pedidosComSucessor.has(p.id),
     };
   });
 }
@@ -730,4 +738,87 @@ export async function getRelatoriosData() {
   const allMedicoes = await db.select().from(medicoes);
   const allFornecedores = await db.select().from(fornecedores);
   return { pedidos: allPedidos, medicoes: allMedicoes, fornecedores: allFornecedores };
+}
+
+// ===== CONTRATOS PARA RENOVAR =====
+// Retorna pedidos do tipo "mensal" (contrato recorrente) com status "concluido"
+// que ainda nao possuem um pedido sucessor (pedidoOrigemId apontando para eles)
+export async function getContratosParaRenovar() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const allPedidos = await db.select().from(pedidos);
+  const allFornecedores = await db.select().from(fornecedores);
+
+  // Pedidos do tipo contrato (mensal) que estao concluidos
+  const contratosConcluidos = allPedidos.filter(
+    p => p.tipo === "mensal" && p.status === "concluido"
+  );
+
+  // IDs de pedidos que ja tem um sucessor (algum pedido aponta para eles como origem)
+  const idsComSucessor = new Set(
+    allPedidos
+      .filter(p => p.pedidoOrigemId !== null && p.pedidoOrigemId !== undefined)
+      .map(p => p.pedidoOrigemId!)
+  );
+
+  // Filtrar apenas os que NAO tem sucessor ainda
+  const contratosParaRenovar = contratosConcluidos.filter(
+    p => !idsComSucessor.has(p.id)
+  );
+
+  return contratosParaRenovar.map(p => {
+    const fornecedor = allFornecedores.find(f => f.id === p.fornecedorId);
+    const totalMed = p.totalMedicoes || 12;
+    const valorTotal = parseFloat(p.valor || "0");
+    const valorPorMedicao = totalMed > 0 ? valorTotal / totalMed : valorTotal;
+
+    // Buscar o pedido de origem (para exibir historico)
+    const pedidoOrigem = p.pedidoOrigemId
+      ? allPedidos.find(orig => orig.id === p.pedidoOrigemId)
+      : null;
+
+    return {
+      pedidoId: p.id,
+      pedidoNumero: p.numero,
+      fornecedorId: p.fornecedorId,
+      fornecedorNome: fornecedor?.nome || "—",
+      descricao: p.descricao || "",
+      valor: p.valor,
+      valorPorMedicao: valorPorMedicao.toFixed(2),
+      totalMedicoes: totalMed,
+      frequencia: p.frequencia,
+      tipoGasto: p.tipoGasto,
+      elementoPep: p.elementoPep || null,
+      responsavel: p.responsavel || null,
+      tipo: p.tipo,
+      pedidoOrigemId: p.pedidoOrigemId || null,
+      pedidoOrigemNumero: pedidoOrigem?.numero || null,
+      dataInicio: p.dataInicio ? p.dataInicio.toISOString().substring(0, 10) : null,
+      dataFim: p.dataFim ? p.dataFim.toISOString().substring(0, 10) : null,
+    };
+  });
+}
+
+// Retorna a cadeia completa de renovacoes de um pedido (ancestrais e descendentes)
+export async function getCadeiaRenovacoes(pedidoId: number) {
+  const db = await getDb();
+  if (!db) return { anterior: null, sucessor: null };
+
+  const allPedidos = await db.select().from(pedidos);
+  const pedido = allPedidos.find(p => p.id === pedidoId);
+  if (!pedido) return { anterior: null, sucessor: null };
+
+  // Pedido anterior (origem)
+  const anterior = pedido.pedidoOrigemId
+    ? allPedidos.find(p => p.id === pedido.pedidoOrigemId) || null
+    : null;
+
+  // Pedido sucessor (algum pedido aponta para este como origem)
+  const sucessor = allPedidos.find(p => p.pedidoOrigemId === pedidoId) || null;
+
+  return {
+    anterior: anterior ? { id: anterior.id, numero: anterior.numero, status: anterior.status } : null,
+    sucessor: sucessor ? { id: sucessor.id, numero: sucessor.numero, status: sucessor.status } : null,
+  };
 }

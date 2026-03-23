@@ -1,9 +1,10 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
-import { CheckCircle2, FileText, AlertTriangle, Clock, Plus, Users, ChevronDown, ChevronRight, Filter } from "lucide-react";
+import { CheckCircle2, FileText, AlertTriangle, Clock, Plus, Users, ChevronDown, ChevronRight, Filter, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { useState, useMemo } from "react";
 import MedicaoModal from "./modals/MedicaoModal";
+import PedidoModal from "./modals/PedidoModal";
 
 function formatCurrency(value: number | string | null | undefined) {
   const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
@@ -86,10 +87,26 @@ export default function Dashboard() {
     { mes: mesGerencial },
     { enabled: !!mesGerencial }
   );
+  const { data: contratosRenovar = [] } = trpc.renovacoes.contratosParaRenovar.useQuery();
   const utils = trpc.useUtils();
   const [modalOpen, setModalOpen] = useState(false);
   const [defaultPedidoId, setDefaultPedidoId] = useState<number | null>(null);
   const [defaultValor, setDefaultValor] = useState<string | null>(null);
+  const [renovacaoModalOpen, setRenovacaoModalOpen] = useState(false);
+  const [renovacaoDe, setRenovacaoDe] = useState<any>(null);
+
+  const handleRenovar = (contrato: any) => {
+    setRenovacaoDe(contrato);
+    setRenovacaoModalOpen(true);
+  };
+
+  const handleCloseRenovacaoModal = () => {
+    setRenovacaoModalOpen(false);
+    setRenovacaoDe(null);
+    utils.renovacoes.contratosParaRenovar.invalidate();
+    utils.pedidos.listComStats.invalidate();
+    utils.dashboard.getData.invalidate();
+  };
 
   const handleCriarPendente = (pedidoId: number, valorPrevisto: string) => {
     setDefaultPedidoId(pedidoId);
@@ -117,6 +134,13 @@ export default function Dashboard() {
     valorPrevisto: string;
     responsavel?: string | null;
     tipoAtraso: "mes_anterior" | "mes_atual_apos_dia10";
+  };
+  type ContratoRenovar = {
+    pedidoId: number; pedidoNumero: string; fornecedorId: number; fornecedorNome: string;
+    descricao: string; valor: string; valorPorMedicao: string; totalMedicoes: number;
+    frequencia: string; tipoGasto: string; elementoPep: string | null;
+    responsavel: string | null; tipo: string; pedidoOrigemId: number | null;
+    pedidoOrigemNumero: string | null;
   };
   type PedidoAndamento = {
     id: number; numero: string; fornecedorNome: string; tipo: string; valor: string;
@@ -154,6 +178,11 @@ export default function Dashboard() {
   }, [gerencialData, medicoesCriarListaAll, medicoesAtrasoAll, pedidosEmAndamentoAll, pedidosAtivosPorResp]);
 
   const filtrado = filtroResponsavel !== "todos";
+
+  const contratosRenovarFiltrados = useMemo(() => {
+    if (!filtrado) return contratosRenovar as ContratoRenovar[];
+    return (contratosRenovar as ContratoRenovar[]).filter(c => (c.responsavel || "Sem responsável") === filtroResponsavel);
+  }, [contratosRenovar, filtroResponsavel, filtrado]);
 
   // ── Filtros aplicados em cada seção ──────────────────────────────────────
   const medicoesCriarLista = useMemo(() => {
@@ -626,12 +655,96 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ===== CONTRATOS PARA RENOVAR ===== */}
+      {contratosRenovarFiltrados.length > 0 && (
+        <div className="bg-white rounded-xl border border-blue-100 p-5 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                <RefreshCw className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="font-heading font-semibold text-gray-900">Contratos para Renovar</h2>
+                <p className="text-xs text-gray-400">Contratos concluídos aguardando novo pedido</p>
+              </div>
+              <span className="ml-2 bg-blue-100 text-blue-700 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                {contratosRenovarFiltrados.length}
+              </span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                  <th className="text-left pb-2 font-medium">Pedido</th>
+                  <th className="text-left pb-2 font-medium">Fornecedor</th>
+                  {!filtrado && <th className="text-left pb-2 font-medium">Responsável</th>}
+                  <th className="text-left pb-2 font-medium">Valor Anterior</th>
+                  <th className="text-left pb-2 font-medium">Frequência</th>
+                  <th className="text-left pb-2 font-medium">Origem</th>
+                  <th className="text-left pb-2 font-medium">Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {contratosRenovarFiltrados.map((c) => (
+                  <tr key={c.pedidoId} className="border-b border-gray-50 last:border-0">
+                    <td className="py-2.5 font-medium text-gray-900">{c.pedidoNumero}</td>
+                    <td className="py-2.5 text-gray-600">{c.fornecedorNome}</td>
+                    {!filtrado && (
+                      <td className="py-2.5">
+                        {c.responsavel ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                            <AvatarInitial nome={c.responsavel} />
+                            <span className="truncate max-w-20">{c.responsavel}</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
+                      </td>
+                    )}
+                    <td className="py-2.5 text-gray-700">{formatCurrency(c.valor)}</td>
+                    <td className="py-2.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
+                        {c.frequencia === "mensal" ? "Mensal" : c.frequencia === "trimestral" ? "Trimestral" : c.frequencia === "semestral" ? "Semestral" : "Anual"}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-xs text-gray-400">
+                      {c.pedidoOrigemNumero ? (
+                        <span className="text-gray-500">← {c.pedidoOrigemNumero}</span>
+                      ) : (
+                        <span className="text-gray-300">Original</span>
+                      )}
+                    </td>
+                    <td className="py-2.5">
+                      <button
+                        onClick={() => handleRenovar(c)}
+                        className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+                      >
+                        <RefreshCw className="h-3 w-3" /> Renovar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {modalOpen && (
         <MedicaoModal
           open={modalOpen}
           onClose={handleCloseModal}
           defaultPedidoId={defaultPedidoId}
           defaultValor={defaultValor}
+        />
+      )}
+
+      {renovacaoModalOpen && (
+        <PedidoModal
+          open={renovacaoModalOpen}
+          onClose={handleCloseRenovacaoModal}
+          renovacaoDe={renovacaoDe}
         />
       )}
     </DashboardLayout>

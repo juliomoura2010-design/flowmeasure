@@ -11,6 +11,7 @@ import {
   getMedicoesComDados, getControleMedicoesMes,
   getDashboardData, getDashboardGerencial, getRelatoriosData,
   buscaGlobal,
+  getContratosParaRenovar, getCadeiaRenovacoes,
 } from "./db";
 
 const fornecedorSchema = z.object({
@@ -40,7 +41,8 @@ const pedidoSchema = z.object({
   tipoGasto: z.enum(["capex", "opex"]).default("opex"),
   responsavel: z.string().optional().nullable(),
   frequencia: z.enum(["mensal", "trimestral", "semestral", "anual"]).default("mensal"),
-  status: z.enum(["ativo", "concluido", "cancelado"]).default("ativo"),
+  status: z.enum(["ativo", "concluido", "cancelado", "encerrado"]).default("ativo"),
+  pedidoOrigemId: z.number().int().positive().optional().nullable(),
   observacoes: z.string().optional().nullable(),
 });
 
@@ -99,8 +101,8 @@ export const appRouter = router({
       .query(({ input }) => getPedidos(input?.fornecedorId, input?.tipo)),
 
     listComStats: protectedProcedure
-      .input(z.object({ fornecedorId: z.number().optional(), tipo: z.string().optional() }).optional())
-      .query(({ input }) => getPedidosComStats(input?.fornecedorId, input?.tipo)),
+      .input(z.object({ fornecedorId: z.number().optional(), tipo: z.string().optional(), status: z.string().optional() }).optional())
+      .query(({ input }) => getPedidosComStats(input?.fornecedorId, input?.tipo, input?.status)),
 
     getById: protectedProcedure
       .input(z.object({ id: z.number() }))
@@ -206,6 +208,17 @@ export const appRouter = router({
     global: protectedProcedure
       .input(z.object({ query: z.string() }))
       .query(({ input }) => buscaGlobal(input.query)),
+  }),
+
+  renovacoes: router({
+    // Lista pedidos do tipo contrato (mensal) concluidos sem sucessor
+    contratosParaRenovar: protectedProcedure
+      .query(() => getContratosParaRenovar()),
+
+    // Retorna pedido anterior e sucessor de um pedido (cadeia de renovacoes)
+    cadeia: protectedProcedure
+      .input(z.object({ pedidoId: z.number() }))
+      .query(({ input }) => getCadeiaRenovacoes(input.pedidoId)),
   }),
 });
 

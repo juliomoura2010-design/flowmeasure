@@ -84,3 +84,10 @@
 - [x] BUG/MELHORIA: Regra de "Em Atraso" — mostrar pedidos sem medição criada em meses anteriores + pedidos do mês atual sem medição após dia 10
 - [x] BUG: Lógica de medições a criar não respeita a frequência do pedido (mensal, trimestral, etc.) — ex: pedido trimestral aparece como pendente em todos os meses
 - [x] BUG: Logica de medicoes nao respeita totalMedicoes — pedido com 1 medicao prevista continua aparecendo como pendente nos meses seguintes apos a medicao ser criada
+- [x] Renovacao de contratos: novo status encerrado na tabela pedidos
+- [x] Renovacao de contratos: campo pedidoOrigemId para cadeia de renovacoes
+- [x] Renovacao de contratos: funcao getContratosParaRenovar no backend
+- [x] Renovacao de contratos: secao Contratos para Renovar na Visao Geral com KPI e botao Renovar
+- [x] Renovacao de contratos: modal de renovacao pre-preenchido com dados do pedido anterior
+- [x] Renovacao de contratos: historico de cadeia na tela de Pedidos (pedido anterior e sucessor)
+- [x] Renovacao de contratos: badge de status Encerrado na listagem de pedidos

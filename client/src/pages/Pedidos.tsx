@@ -1,7 +1,7 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, RefreshCw, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import PedidoModal from "./modals/PedidoModal";
 
@@ -15,8 +15,9 @@ function StatusBadge({ status }: { status: string }) {
     ativo: "bg-green-100 text-green-700",
     concluido: "bg-blue-100 text-blue-700",
     cancelado: "bg-red-100 text-red-700",
+    encerrado: "bg-gray-200 text-gray-600",
   };
-  const labels: Record<string, string> = { ativo: "Ativo", concluido: "Concluído", cancelado: "Cancelado" };
+  const labels: Record<string, string> = { ativo: "Ativo", concluido: "Concluído", cancelado: "Cancelado", encerrado: "Encerrado" };
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${map[status] || "bg-gray-100 text-gray-600"}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -39,11 +40,15 @@ export default function Pedidos() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [filterFornecedor, setFilterFornecedor] = useState<string>("todos");
   const [filterTipo, setFilterTipo] = useState<string>("todos");
+  const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [renovacaoModalOpen, setRenovacaoModalOpen] = useState(false);
+  const [renovacaoDe, setRenovacaoDe] = useState<any>(null);
 
   const utils = trpc.useUtils();
   const { data: pedidos = [], isLoading } = trpc.pedidos.listComStats.useQuery({
     fornecedorId: filterFornecedor !== "todos" ? parseInt(filterFornecedor) : undefined,
     tipo: filterTipo !== "todos" ? filterTipo : undefined,
+    status: filterStatus !== "todos" ? filterStatus : undefined,
   });
   const { data: fornecedores = [] } = trpc.fornecedores.list.useQuery();
 
@@ -72,6 +77,19 @@ export default function Pedidos() {
     setEditingId(null);
     utils.pedidos.listComStats.invalidate();
     utils.dashboard.getData.invalidate();
+  };
+
+  const handleRenovar = (p: any) => {
+    setRenovacaoDe(p);
+    setRenovacaoModalOpen(true);
+  };
+
+  const handleCloseRenovacaoModal = () => {
+    setRenovacaoModalOpen(false);
+    setRenovacaoDe(null);
+    utils.pedidos.listComStats.invalidate();
+    utils.dashboard.getData.invalidate();
+    utils.renovacoes.contratosParaRenovar.invalidate();
   };
 
   return (
@@ -104,8 +122,19 @@ export default function Pedidos() {
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           <option value="todos">Todos os tipos</option>
-          <option value="fixo">Fixo</option>
-          <option value="mensal">Mensal</option>
+          <option value="fixo">Fixo (Spot)</option>
+          <option value="mensal">Mensal (Contrato)</option>
+        </select>
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          <option value="todos">Todos os status</option>
+          <option value="ativo">Ativo</option>
+          <option value="concluido">Concluído</option>
+          <option value="encerrado">Encerrado</option>
+          <option value="cancelado">Cancelado</option>
         </select>
       </div>
 
@@ -140,6 +169,7 @@ export default function Pedidos() {
                   <th className="text-left px-4 py-3 font-medium">Pago</th>
                   <th className="text-left px-4 py-3 font-medium">Próx. Medição</th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
+                  <th className="text-left px-4 py-3 font-medium">Cadeia</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -195,7 +225,31 @@ export default function Pedidos() {
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                     <td className="px-4 py-3">
+                      {p.pedidoOrigemNumero ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                          <GitBranch className="h-3 w-3" />
+                          <span title={`Renovação de ${p.pedidoOrigemNumero}`}>← {p.pedidoOrigemNumero}</span>
+                        </span>
+                      ) : p.temSucessor ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-blue-400">
+                          <RefreshCw className="h-3 w-3" />
+                          <span>Renovado</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-200 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        {p.status === "concluido" && p.tipo === "mensal" && !p.temSucessor && (
+                          <button
+                            onClick={() => handleRenovar(p)}
+                            className="flex items-center gap-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 px-2 py-1 rounded-lg font-medium transition-colors"
+                            title="Renovar contrato"
+                          >
+                            <RefreshCw className="h-3 w-3" /> Renovar
+                          </button>
+                        )}
                         <button
                           onClick={() => handleEdit(p.id)}
                           className="text-gray-400 hover:text-gray-700 transition-colors"
@@ -226,6 +280,14 @@ export default function Pedidos() {
           onClose={handleCloseModal}
           editingId={editingId}
           fornecedores={fornecedores as any[]}
+        />
+      )}
+
+      {renovacaoModalOpen && (
+        <PedidoModal
+          open={renovacaoModalOpen}
+          onClose={handleCloseRenovacaoModal}
+          renovacaoDe={renovacaoDe}
         />
       )}
     </DashboardLayout>
