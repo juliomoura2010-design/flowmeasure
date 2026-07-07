@@ -1,6 +1,12 @@
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
+import { TRPCError } from "@trpc/server";
+import { ACCESS_COOKIE_NAME, COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import {
+  createAccessToken,
+  isPasswordGateConfigured,
+  passwordMatches,
+} from "./_core/passwordAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import {
@@ -63,9 +69,38 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+
+    // Indica se a sessão atual (OAuth ou senha) já tem acesso liberado.
+    checkAccess: publicProcedure.query(({ ctx }) => ({
+      hasAccess: ctx.hasAccess,
+      passwordGateConfigured: isPasswordGateConfigured(),
+    })),
+
+    loginWithPassword: publicProcedure
+      .input(z.object({ password: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        if (!isPasswordGateConfigured()) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Senha de acesso não configurada no servidor.",
+          });
+        }
+        if (!passwordMatches(input.password)) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Senha incorreta." });
+        }
+        const token = await createAccessToken();
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(ACCESS_COOKIE_NAME, token, {
+          ...cookieOptions,
+          maxAge: ONE_YEAR_MS,
+        });
+        return { success: true } as const;
+      }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.res.clearCookie(ACCESS_COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
   }),

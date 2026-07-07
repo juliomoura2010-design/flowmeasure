@@ -27,6 +27,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
 
   const ctx: TrpcContext = {
     user,
+    hasAccess: true,
     req: {
       protocol: "https",
       headers: {},
@@ -49,9 +50,11 @@ describe("auth.logout", () => {
     const result = await caller.auth.logout();
 
     expect(result).toEqual({ success: true });
-    expect(clearedCookies).toHaveLength(1);
-    expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
-    expect(clearedCookies[0]?.options).toMatchObject({
+    // logout agora limpa o cookie de sessão OAuth e o cookie de acesso por senha.
+    expect(clearedCookies).toHaveLength(2);
+    const sessionCookie = clearedCookies.find(c => c.name === COOKIE_NAME);
+    expect(sessionCookie).toBeDefined();
+    expect(sessionCookie?.options).toMatchObject({
       maxAge: -1,
       secure: true,
       sameSite: "none",

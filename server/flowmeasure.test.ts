@@ -57,6 +57,7 @@ function createAuthContext(): TrpcContext {
   };
   return {
     user,
+    hasAccess: true,
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"],
   };
@@ -192,6 +193,7 @@ describe("auth.logout", () => {
         id: 1, openId: "test", email: "test@test.com", name: "Test", loginMethod: "manus",
         role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
       },
+      hasAccess: true,
       req: { protocol: "https", headers: {} } as TrpcContext["req"],
       res: {
         clearCookie: (name: string, options: Record<string, unknown>) => {
@@ -202,7 +204,8 @@ describe("auth.logout", () => {
     const caller = appRouter.createCaller(ctx);
     const result = await caller.auth.logout();
     expect(result).toEqual({ success: true });
-    expect(clearedCookies).toHaveLength(1);
-    expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
+    // logout limpa o cookie de sessão OAuth e o cookie de acesso por senha.
+    expect(clearedCookies).toHaveLength(2);
+    expect(clearedCookies.map(c => c.name)).toContain(COOKIE_NAME);
   });
 });
