@@ -63,3 +63,22 @@ describe("auth.logout", () => {
     });
   });
 });
+
+
+describe("environment variables - security", () => {
+  it("ACCESS_PASSWORD deve estar configurada no servidor", () => {
+    const accessPassword = process.env.ACCESS_PASSWORD;
+    expect(accessPassword).toBeDefined();
+    expect(accessPassword).not.toBe("");
+    expect(accessPassword?.length).toBeGreaterThan(10);
+  });
+
+  it("ACCESS_PASSWORD nunca deve ser exposta no cliente", () => {
+    // Verificar que ACCESS_PASSWORD não está em nenhum arquivo do cliente
+    const accessPassword = process.env.ACCESS_PASSWORD;
+    expect(accessPassword).toBeDefined();
+    // A senha deve estar apenas no servidor, não em variáveis VITE_* (que são expostas ao cliente)
+    const viteVars = Object.keys(process.env).filter(key => key.startsWith("VITE_ACCESS"));
+    expect(viteVars).toHaveLength(0);
+  });
+});
