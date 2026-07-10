@@ -91,3 +91,4 @@
 - [x] Renovacao de contratos: modal de renovacao pre-preenchido com dados do pedido anterior
 - [x] Renovacao de contratos: historico de cadeia na tela de Pedidos (pedido anterior e sucessor)
 - [x] Renovacao de contratos: badge de status Encerrado na listagem de pedidos
+- [x] Campo "Descrição" em medições: banco de dados, backend, modal de criação/edição, tabela de listagem

@@ -394,6 +394,7 @@ export default function Medicoes() {
                   <th className="text-left px-4 py-3 font-medium">Fornecedor</th>
                   {!filtrado && <th className="text-left px-4 py-3 font-medium">Responsável</th>}
                   <th className="text-left px-4 py-3 font-medium">Período Ref.</th>
+                  <th className="text-left px-4 py-3 font-medium">Descrição</th>
                   <th className="text-left px-4 py-3 font-medium">Vencimento</th>
                   <th className="text-left px-4 py-3 font-medium">Valor</th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -419,6 +420,7 @@ export default function Medicoes() {
                       </td>
                     )}
                     <td className="px-4 py-3 text-gray-600 text-xs">{getMesLabel(m.mes)}</td>
+                    <td className="px-4 py-3 text-gray-600 text-xs max-w-xs truncate" title={m.descricao || ""}>{m.descricao || "—"}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{formatDate(m.dataVencimento)}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(m.valor)}</td>
                     <td className="px-4 py-3"><StatusBadge status={m.status} /></td>

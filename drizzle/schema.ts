@@ -76,6 +76,7 @@ export const medicoes = mysqlTable("medicoes", {
   dataPagamento: date("dataPagamento"),
   status: mysqlEnum("status", ["pendente", "paga", "cancelada"]).default("pendente").notNull(),
   numeroPagamento: varchar("numeroPagamento", { length: 100 }),
+  descricao: text("descricao"), // descrição da medição (ex: serviços prestados, detalhes do projeto)
   observacoes: text("observacoes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

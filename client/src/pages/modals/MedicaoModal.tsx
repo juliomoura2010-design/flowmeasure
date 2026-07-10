@@ -37,6 +37,7 @@ const defaultForm = {
   dataPagamento: "",
   status: "pendente",
   numeroPagamento: "",
+  descricao: "",
   observacoes: "",
 };
 
@@ -72,6 +73,7 @@ export default function MedicaoModal({ open, onClose, editingId, defaultMes, def
         dataPagamento: toDateInput(medicaoData.dataPagamento),
         status: medicaoData.status,
         numeroPagamento: medicaoData.numeroPagamento ?? "",
+        descricao: medicaoData.descricao ?? "",
         observacoes: medicaoData.observacoes ?? "",
       });
     } else if (!editingId) {
@@ -123,6 +125,7 @@ export default function MedicaoModal({ open, onClose, editingId, defaultMes, def
       dataPagamento: form.dataPagamento || null,
       status: form.status as "pendente" | "paga" | "cancelada",
       numeroPagamento: form.numeroPagamento || null,
+      descricao: form.descricao || null,
       observacoes: form.observacoes || null,
     };
 
@@ -226,6 +229,10 @@ export default function MedicaoModal({ open, onClose, editingId, defaultMes, def
                 <Input type="date" value={form.dataPagamento} onChange={e => setForm(p => ({ ...p, dataPagamento: e.target.value }))} />
               </div>
             )}
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label>Descrição</Label>
+              <Textarea value={form.descricao} onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))} placeholder="Ex: Serviços prestados, detalhes do projeto" rows={2} />
+            </div>
             <div className="sm:col-span-2 space-y-1.5">
               <Label>Observações</Label>
               <Textarea value={form.observacoes} onChange={e => setForm(p => ({ ...p, observacoes: e.target.value }))} placeholder="Observações adicionais" rows={3} />

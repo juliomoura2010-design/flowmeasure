@@ -62,6 +62,7 @@ const medicaoSchema = z.object({
   dataPagamento: z.string().optional().nullable(),
   status: z.enum(["pendente", "paga", "cancelada"]).default("pendente"),
   numeroPagamento: z.string().optional().nullable(),
+  descricao: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
 });
 

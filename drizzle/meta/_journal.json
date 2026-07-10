@@ -43,6 +43,13 @@
       "when": 1774284129375,
       "tag": "0005_opposite_domino",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1783604488457,
+      "tag": "0006_bored_plazm",
+      "breakpoints": true
     }
   ]
 }
